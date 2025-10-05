@@ -212,53 +212,54 @@ class FinanceApp {
         `;
     }
 
-    renderTransactions(container) {
-        container.innerHTML = `
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">🔍 Semua Transaksi</h3>
-                    <div class="data-management">
-                        <button class="btn btn-warning" onclick="app.exportData()">
-                            <span>📤</span> Export
-                        </button>
-                        <button class="btn btn-info" onclick="app.showBackupModal()">
-                            <span>💾</span> Backup
-                        </button>
-                    </div>
+renderTransactions(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🔍 Semua Transaksi</h3>
+                <div class="data-management">
+                    <button class="btn btn-warning" onclick="app.exportToCSV()">
+                        <span>📤</span> Export CSV
+                    </button>
+                    <button class="btn btn-info" onclick="app.downloadBackup()">
+                        <span>💾</span> Backup
+                    </button>
                 </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <div class="tab-grid tab-grid-2">
-                        <div>
-                            <label class="form-label">Filter by Wallet:</label>
-                            <select id="filterWallet" class="form-control" onchange="app.applyFilters()">
-                                <option value="">Semua Wallet</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">Filter by Kategori:</label>
-                            <select id="filterCategory" class="form-control" onchange="app.applyFilters()">
-                                <option value="">Semua Kategori</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">Dari Tanggal:</label>
-                            <input type="date" id="filterDateFrom" class="form-control" onchange="app.applyFilters()">
-                        </div>
-                        <div>
-                            <label class="form-label">Sampai Tanggal:</label>
-                            <input type="date" id="filterDateTo" class="form-control" onchange="app.applyFilters()">
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="allTransactions"></div>
             </div>
-        `;
-        
-        this.populateFilterOptions();
-        this.renderAllTransactions();
-    }
+            
+            <!-- Filter section tetap sama -->
+            <div style="margin-bottom: 20px;">
+                <div class="tab-grid tab-grid-2">
+                    <div>
+                        <label class="form-label">Filter by Wallet:</label>
+                        <select id="filterWallet" class="form-control" onchange="app.applyFilters()">
+                            <option value="">Semua Wallet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Filter by Kategori:</label>
+                        <select id="filterCategory" class="form-control" onchange="app.applyFilters()">
+                            <option value="">Semua Kategori</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Dari Tanggal:</label>
+                        <input type="date" id="filterDateFrom" class="form-control" onchange="app.applyFilters()">
+                    </div>
+                    <div>
+                        <label class="form-label">Sampai Tanggal:</label>
+                        <input type="date" id="filterDateTo" class="form-control" onchange="app.applyFilters()">
+                    </div>
+                </div>
+            </div>
+            
+            <div id="allTransactions"></div>
+        </div>
+    `;
+    
+    this.populateFilterOptions();
+    this.renderAllTransactions();
+}
 
     populateFilterOptions() {
         const wallets = DB.getWallets();
@@ -897,69 +898,189 @@ showDayTransactions(dateString) {
     Utils.openModal('dayTransactionsModal');
 }
 
-    renderSettings(container) {
-        container.innerHTML = `
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">⚙️ Pengaturan Aplikasi</h3>
-                </div>
-                
-                <div class="tab-grid tab-grid-2">
-                    <div>
-                        <h4>💾 Data Management</h4>
-                        <div class="data-management">
-                            <button class="btn btn-warning" onclick="app.exportData()">
-                                <span>📤</span> Export CSV
-                            </button>
-                            <button class="btn btn-info" onclick="app.downloadBackup()">
-                                <span>💾</span> Backup Data
-                            </button>
-                        </div>
-                        <div class="data-management">
-                            <label class="file-input-label btn btn-primary">
-                                <span>📁</span> Restore Backup
-                                <input type="file" id="restoreFile" class="file-input" accept=".json" onchange="app.restoreBackup(event)">
-                            </label>
-                            <label class="file-input-label btn btn-primary">
-                                <span>📄</span> Import CSV
-                                <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="app.importFromCSV(event)">
-                            </label>
-                        </div>
-                        <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="app.confirmClearAllData()">
-                            <span>🗑️</span> Hapus Semua Data
-                        </button>
-                    </div>
-                    
-                    <div>
-                        <h4>🏷️ Kelola Kategori</h4>
-                        <div id="categoriesManagement"></div>
-                        <button class="btn btn-primary" onclick="app.showAddCategoryModal()" style="width: 100%; margin-top: 10px;">
-                            + Tambah Kategori
-                        </button>
-                    </div>
-                </div>
+renderSettings(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">⚙️ Pengaturan Aplikasi</h3>
             </div>
             
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">ℹ️ Informasi Aplikasi</h3>
-                </div>
-                <div style="text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
-                    <h3>Finance Super App</h3>
-                    <p style="color: #666; margin-bottom: 15px;">Aplikasi manajemen keuangan offline</p>
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">
-                        <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
-                        <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
-                        <p><strong>Versi:</strong> 1.0.0</p>
+            <div class="tab-grid tab-grid-2">
+                <div>
+                    <h4>💾 Data Management</h4>
+                    <div class="data-management">
+                        <button class="btn btn-warning" onclick="app.exportToCSV()">
+                            <span>📤</span> Export CSV
+                        </button>
+                        <button class="btn btn-info" onclick="app.downloadBackup()">
+                            <span>💾</span> Backup Data
+                        </button>
                     </div>
+                    <div class="data-management">
+                        <label class="file-input-label btn btn-primary">
+                            <span>📁</span> Restore Backup
+                            <input type="file" id="restoreFile" class="file-input" accept=".json" onchange="app.restoreBackup(event)">
+                        </label>
+                        <label class="file-input-label btn btn-primary">
+                            <span>📄</span> Import CSV
+                            <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="app.importFromCSV(event)">
+                        </label>
+                    </div>
+                    <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="app.confirmClearAllData()">
+                        <span>🗑️</span> Hapus Semua Data
+                    </button>
+                </div>
+                
+                <div>
+                    <h4>🏷️ Kelola Kategori</h4>
+                    <div id="categoriesManagement"></div>
+                    <button class="btn btn-primary" onclick="app.showAddCategoryModal()" style="width: 100%; margin-top: 10px;">
+                        + Tambah Kategori
+                    </button>
                 </div>
             </div>
-        `;
+        </div>
         
-        this.renderCategoriesManagement();
-        this.updateAppInfo();
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">ℹ️ Informasi Aplikasi</h3>
+            </div>
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
+                <h3>Finance Super App</h3>
+                <p style="color: #666; margin-bottom: 15px;">Aplikasi manajemen keuangan offline</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">
+                    <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
+                    <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
+                    <p><strong>Versi:</strong> 1.0.0</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    this.renderCategoriesManagement();
+    this.updateAppInfo();
+}
+
+exportToCSV() {
+    try {
+        const transactions = DB.getTransactions();
+        const wallets = DB.getWallets();
+        const categories = DB.getCategories();
+
+        // Header CSV
+        let csv = 'Date,Type,Amount,Wallet,Category,Notes\n';
+
+        transactions.forEach(transaction => {
+            const wallet = wallets.find(w => w.id === transaction.walletId);
+            const category = categories.find(c => c.id === transaction.categoryId);
+
+            const date = transaction.date;
+            const type = transaction.type;
+            const amount = transaction.amount;
+            const walletName = wallet ? wallet.name : 'Unknown';
+            const categoryName = category ? category.name : 'Unknown';
+            const notes = transaction.notes ? `"${transaction.notes.replace(/"/g, '""')}"` : '';
+
+            csv += `${date},${type},${amount},${walletName},${categoryName},${notes}\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        Utils.showToast('CSV berhasil diunduh!', 'success');
+    } catch (error) {
+        console.error('Export CSV error:', error);
+        Utils.showToast('Gagal mengekspor CSV', 'error');
     }
+}
+
+importFromCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const csvText = e.target.result;
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(',');
+
+            // Skip header
+            const transactions = DB.getTransactions();
+            let importedCount = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+
+                const values = lines[i].split(',');
+                if (values.length < 5) continue;
+
+                const [date, type, amount, walletName, categoryName, ...noteParts] = values;
+                const notes = noteParts.join(',').replace(/^"|"$/g, '');
+
+                // Validasi data
+                if (!date || !type || !amount || !walletName || !categoryName) {
+                    console.warn('Data tidak valid, dilewati:', lines[i]);
+                    continue;
+                }
+
+                // Cari wallet berdasarkan nama
+                const wallet = DB.getWallets().find(w => w.name === walletName);
+                if (!wallet) {
+                    Utils.showToast(`Wallet "${walletName}" tidak ditemukan`, 'error');
+                    continue;
+                }
+
+                // Cari kategori berdasarkan nama dan type
+                const category = DB.getCategories().find(c => 
+                    c.name === categoryName && c.type === type
+                );
+                if (!category) {
+                    Utils.showToast(`Kategori "${categoryName}" dengan tipe "${type}" tidak ditemukan`, 'error');
+                    continue;
+                }
+
+                // Tambah transaksi
+                transactions.push({
+                    id: Utils.generateId(),
+                    type: type,
+                    amount: parseFloat(amount),
+                    walletId: wallet.id,
+                    categoryId: category.id,
+                    date: date,
+                    notes: notes,
+                    createdAt: new Date().toISOString()
+                });
+
+                importedCount++;
+            }
+
+            if (importedCount > 0) {
+                DB.saveTransactions(transactions);
+                this.renderRecentTransactions();
+                this.renderAllTransactions();
+                this.updateAppInfo();
+                Utils.showToast(`Berhasil mengimpor ${importedCount} transaksi!`, 'success');
+            } else {
+                Utils.showToast('Tidak ada data yang berhasil diimpor', 'info');
+            }
+
+            // Reset input file
+            event.target.value = '';
+
+        } catch (error) {
+            console.error('Import CSV error:', error);
+            Utils.showToast('Gagal mengimpor CSV. Format file mungkin tidak sesuai.', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
 
     renderCategoriesManagement() {
         const categories = DB.getCategories();
