@@ -95,31 +95,33 @@ const DB = {
         return this.getCategories().find(c => c.id === categoryId);
     },
 
-    backupData() {
-        try {
-            const data = {
-                wallets: this.getWallets(),
-                categories: this.getCategories(),
-                transactions: this.getTransactions(),
-                budgets: this.getBudgets(),
-                exportedAt: new Date().toISOString()
-            };
+backupData() {
+    try {
+        const data = {
+            wallets: this.getWallets(),
+            categories: this.getCategories(),
+            transactions: this.getTransactions(),
+            budgets: this.getBudgets(),
+            exportedAt: new Date().toISOString(),
+            type: 'backup'
+        };
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            return true;
-        } catch (e) {
-            console.error('Backup error:', e);
-            Utils.showToast('Gagal membuat backup', 'error');
-            return false;
-        }
-    },
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        Utils.showToast('Backup JSON berhasil diunduh!', 'success');
+        return true;
+    } catch (e) {
+        console.error('Backup error:', e);
+        Utils.showToast('Gagal membuat backup', 'error');
+        return false;
+    }
+},
 
     restoreData(jsonData) {
         try {
