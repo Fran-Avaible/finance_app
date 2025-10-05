@@ -1,4 +1,3 @@
-// ===== UTILITIES =====
 const Utils = {
     formatCurrency: (amount) => {
         return new Intl.NumberFormat('id-ID', {
@@ -83,5 +82,75 @@ const Utils = {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    },
+
+    // Tambahkan di Utils object
+
+// Theme management
+getTheme: () => {
+    return localStorage.getItem('theme') || 'light';
+},
+
+setTheme: (theme) => {
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+},
+
+toggleTheme: () => {
+    const currentTheme = Utils.getTheme();
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    Utils.setTheme(newTheme);
+    return newTheme;
+},
+
+// Initialize theme
+initTheme: () => {
+    const savedTheme = Utils.getTheme();
+    Utils.setTheme(savedTheme);
+    
+    // Add theme toggle button to DOM
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'theme-toggle';
+    toggleBtn.innerHTML = '<span class="icon">🌓</span>';
+    toggleBtn.title = 'Toggle Dark/Light Mode';
+    toggleBtn.onclick = () => {
+        const newTheme = Utils.toggleTheme();
+        Utils.showToast(`Mode ${newTheme === 'dark' ? 'gelap' : 'terang'} diaktifkan`, 'info');
+    };
+    
+    document.body.appendChild(toggleBtn);
+},
+
+// Di utils.js, tambahkan auto-detection:
+initTheme: () => {
+    let savedTheme = Utils.getTheme();
+    
+    // Jika belum ada preference yang disimpan, coba detect system preference
+    if (!savedTheme) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        savedTheme = prefersDark ? 'dark' : 'light';
     }
+    
+    Utils.setTheme(savedTheme);
+    
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('theme')) { // Only auto-change if user hasn't set preference
+            const newTheme = e.matches ? 'dark' : 'light';
+            Utils.setTheme(newTheme);
+        }
+    });
+    
+    // Add theme toggle button to DOM
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'theme-toggle';
+    toggleBtn.innerHTML = '<span class="icon">🌓</span>';
+    toggleBtn.title = 'Toggle Dark/Light Mode';
+    toggleBtn.onclick = () => {
+        const newTheme = Utils.toggleTheme();
+        Utils.showToast(`Mode ${newTheme === 'dark' ? 'gelap' : 'terang'} diaktifkan`, 'info');
+    };
+    
+    document.body.appendChild(toggleBtn);
+}
 };
