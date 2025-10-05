@@ -713,164 +713,189 @@ class FinanceApp {
         }
     }
 
-    renderCalendar(container) {
-        container.innerHTML = `
-            <div class="card">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 class="card-title">🗓️ Kalender Transaksi</h3>
-                    <div>
-                        <button class="btn btn-outline btn-sm" onclick="app.prevMonth()" style="margin-right: 10px;">← Bulan Sebelumnya</button>
-                        <span id="currentMonthYear" style="font-weight: 600; margin: 0 15px;"></span>
-                        <button class="btn btn-outline btn-sm" onclick="app.nextMonth()">Bulan Selanjutnya →</button>
-                    </div>
-                </div>
-                <div id="calendarContainer" style="margin-top: 20px;">
-                    <!-- Calendar will be rendered here -->
+renderCalendar(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🗓️ Kalender Transaksi</h3>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="app.prevMonth()">← Prev</button>
+                    <span id="currentMonthYear" style="margin: 0 15px;"></span>
+                    <button class="btn btn-outline btn-sm" onclick="app.nextMonth()">Next →</button>
                 </div>
             </div>
-        `;
-        
-        this.renderCalendarView();
+            <div id="calendarContainer"></div>
+        </div>
+    `;
+    
+    this.renderCalendarView();
+}
+
+prevMonth() {
+    this.calendarDate.setMonth(this.calendarDate.getMonth() - 1);
+    this.renderCalendarView();
+}
+
+nextMonth() {
+    this.calendarDate.setMonth(this.calendarDate.getMonth() + 1);
+    this.renderCalendarView();
+}
+
+renderCalendarView() {
+    const calendarContainer = document.getElementById('calendarContainer');
+    const currentMonthYearSpan = document.getElementById('currentMonthYear');
+    
+    if (!calendarContainer || !currentMonthYearSpan) return;
+
+    const year = this.calendarDate.getFullYear();
+    const month = this.calendarDate.getMonth();
+
+    currentMonthYearSpan.textContent = this.calendarDate.toLocaleDateString('id-ID', { 
+        month: 'long', 
+        year: 'numeric' 
+    });
+
+    // PERBAIKAN: Hitung dengan benar
+    const firstDayOfMonth = new Date(year, month, 1);
+    const firstDay = firstDayOfMonth.getDay(); // 0=Minggu, 1=Senin, ..., 6=Sabtu
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    console.log(`Debug: ${year}-${month+1}, Hari pertama: ${firstDay} (0=Minggu), Jumlah hari: ${daysInMonth}`);
+
+    let calendarHTML = `
+        <div class="calendar-grid">
+            <div class="calendar-day-header">Min</div>
+            <div class="calendar-day-header">Sen</div>
+            <div class="calendar-day-header">Sel</div>
+            <div class="calendar-day-header">Rab</div>
+            <div class="calendar-day-header">Kam</div>
+            <div class="calendar-day-header">Jum</div>
+            <div class="calendar-day-header">Sab</div>
+    `;
+
+    // HARI KOSONG: Untuk kalender Minggu pertama, langsung pakai firstDay
+    for (let i = 0; i < firstDay; i++) {
+        calendarHTML += `<div class="calendar-day empty"></div>`;
     }
 
-    renderCalendarView() {
-        const calendarContainer = document.getElementById('calendarContainer');
-        const currentMonthYearSpan = document.getElementById('currentMonthYear');
+    // Get transactions by date
+    const transactionsByDate = {};
+    DB.getTransactions().forEach(transaction => {
+        if (!transactionsByDate[transaction.date]) {
+            transactionsByDate[transaction.date] = [];
+        }
+        transactionsByDate[transaction.date].push(transaction);
+    });
+
+    // Days of the month - PERBAIKAN FORMAT TANGGAL
+    for (let day = 1; day <= daysInMonth; day++) {
+        // FIX: Buat dateString dengan format yang konsisten
+        const yyyy = year;
+        const mm = String(month + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const dateString = `${yyyy}-${mm}-${dd}`;
         
-        if (!calendarContainer || !currentMonthYearSpan) return;
-
-        const year = this.calendarDate.getFullYear();
-        const month = this.calendarDate.getMonth();
-
-        currentMonthYearSpan.textContent = this.calendarDate.toLocaleDateString('id-ID', { 
-            month: 'long', 
-            year: 'numeric' 
-        });
-
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const date = new Date(dateString);
         const today = new Date().toISOString().split('T')[0];
+        const isToday = dateString === today;
+        const dayTransactions = transactionsByDate[dateString] || [];
 
-        let calendarHTML = `
-            <div class="calendar-grid">
-                <div class="calendar-day-header">Min</div>
-                <div class="calendar-day-header">Sen</div>
-                <div class="calendar-day-header">Sel</div>
-                <div class="calendar-day-header">Rab</div>
-                <div class="calendar-day-header">Kam</div>
-                <div class="calendar-day-header">Jum</div>
-                <div class="calendar-day-header">Sab</div>
-        `;
+        const dayClass = isToday ? 'today' : '';
+        let transactionDots = '';
 
-        // Adjust for Monday first (Indonesian calendar)
-        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
-
-        // Empty days before month starts
-        for (let i = 0; i < adjustedFirstDay; i++) {
-            calendarHTML += `<div class="calendar-day empty"></div>`;
-        }
-
-        // Get transactions by date
-        const transactionsByDate = {};
-        DB.getTransactions().forEach(transaction => {
-            if (!transactionsByDate[transaction.date]) {
-                transactionsByDate[transaction.date] = [];
-            }
-            transactionsByDate[transaction.date].push(transaction);
+        // Generate dots for transactions
+        dayTransactions.slice(0, 4).forEach(transaction => {
+            const typeClass = transaction.type === 'income' ? 'income' : 
+                            transaction.type === 'expense' ? 'expense' : 'transfer';
+            transactionDots += `<span class="transaction-dot ${typeClass}"></span>`;
         });
-
-        // Days of the month
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
-            const dateString = date.toISOString().split('T')[0];
-            const isToday = dateString === today;
-            const dayTransactions = transactionsByDate[dateString] || [];
-
-            const dayClass = isToday ? 'today' : '';
-            let transactionDots = '';
-
-            // Generate dots for transactions (limit to 4 to avoid clutter)
-            dayTransactions.slice(0, 4).forEach(transaction => {
-                const typeClass = transaction.type === 'income' ? 'income' : 
-                                transaction.type === 'expense' ? 'expense' : 'transfer';
-                transactionDots += `<span class="transaction-dot ${typeClass}"></span>`;
-            });
-            
-            if (dayTransactions.length > 4) {
-                transactionDots += `<span class="transaction-dot more">...</span>`;
-            }
-
-            calendarHTML += `
-                <div class="calendar-day ${dayClass}" data-date="${dateString}" onclick="app.showDayTransactions('${dateString}')">
-                    <div class="day-number">${day}</div>
-                    <div class="day-transactions">${transactionDots}</div>
-                </div>
-            `;
-        }
-
-        // Fill remaining empty cells to complete grid
-        const totalCells = 42; // 6 weeks
-        const filledCells = adjustedFirstDay + daysInMonth;
-        for (let i = filledCells; i < totalCells; i++) {
-            calendarHTML += `<div class="calendar-day empty"></div>`;
-        }
-
-        calendarHTML += `</div>`;
-        calendarContainer.innerHTML = calendarHTML;
-    }
-
-    prevMonth() {
-        this.calendarDate.setMonth(this.calendarDate.getMonth() - 1);
-        this.renderCalendarView();
-    }
-
-    nextMonth() {
-        this.calendarDate.setMonth(this.calendarDate.getMonth() + 1);
-        this.renderCalendarView();
-    }
-
-    showDayTransactions(dateString) {
-        const transactions = DB.getTransactions().filter(t => t.date === dateString);
         
-        if (transactions.length === 0) {
-            Utils.showToast(`Tidak ada transaksi pada ${Utils.formatDate(dateString)}`, 'info');
-            return;
+        if (dayTransactions.length > 4) {
+            transactionDots += `<span class="transaction-dot more">...</span>`;
         }
 
-        const transactionsHTML = transactions.map(transaction => {
-            const wallet = DB.getWallets().find(w => w.id === transaction.walletId);
-            const category = DB.getCategories().find(c => c.id === transaction.categoryId);
-            const typeClass = transaction.type;
-            const amountPrefix = transaction.type === 'income' ? '+' : 
-                               transaction.type === 'expense' ? '-' : '';
+        // FIX: Tambahkan debug info dan pastikan onclick bekerja
+        calendarHTML += `
+            <div class="calendar-day ${dayClass}" 
+                 data-date="${dateString}" 
+                 onclick="app.showDayTransactions('${dateString}')"
+                 title="Klik untuk lihat transaksi ${dd}/${mm}/${yyyy}">
+                <div class="day-number">${day}</div>
+                <div class="day-transactions">${transactionDots}</div>
+            </div>
+        `;
+    }
 
-            return `
-                <div class="transaction-item ${typeClass}" onclick="app.showEditTransactionModal('${transaction.id}')">
-                    <div class="transaction-info">
-                        <div class="transaction-category">${category?.emoji || ''} ${category?.name || 'Unknown'}</div>
-                        <div class="transaction-wallet">${wallet?.name || 'Unknown'}</div>
-                        ${transaction.notes ? `<div class="transaction-notes">${transaction.notes}</div>` : ''}
-                    </div>
-                    <div class="transaction-amount ${typeClass}">
-                        ${amountPrefix}${Utils.formatCurrency(transaction.amount)}
-                    </div>
+    // Fill remaining empty cells
+    const totalCells = 42;
+    const filledCells = firstDay + daysInMonth;
+    for (let i = filledCells; i < totalCells; i++) {
+        calendarHTML += `<div class="calendar-day empty"></div>`;
+    }
+
+    calendarHTML += `</div>`;
+    calendarContainer.innerHTML = calendarHTML;
+}
+
+showDayTransactions(dateString) {
+    console.log('🟡 DEBUG: User klik tanggal:', dateString);
+    
+    // Validasi dateString
+    if (!dateString || dateString === 'undefined' || !dateString.includes('-')) {
+        console.error('❌ Tanggal tidak valid:', dateString);
+        Utils.showToast('Tanggal tidak valid', 'error');
+        return;
+    }
+
+    // Pastikan format konsisten
+    const transactions = DB.getTransactions().filter(t => {
+        console.log('🔍 Comparing:', t.date, 'with', dateString);
+        return t.date === dateString;
+    });
+    
+    console.log('✅ Ditemukan transaksi:', transactions.length, 'untuk tanggal:', dateString);
+
+    if (transactions.length === 0) {
+        const formattedDate = Utils.formatDate(dateString);
+        Utils.showToast(`Tidak ada transaksi pada ${formattedDate}`, 'info');
+        return;
+    }
+
+    const transactionsHTML = transactions.map(transaction => {
+        const wallet = DB.getWallets().find(w => w.id === transaction.walletId);
+        const category = DB.getCategories().find(c => c.id === transaction.categoryId);
+        const typeClass = transaction.type;
+        const amountPrefix = transaction.type === 'income' ? '+' : 
+                           transaction.type === 'expense' ? '-' : '';
+
+        return `
+            <div class="transaction-item ${typeClass}" onclick="app.showEditTransactionModal('${transaction.id}')">
+                <div class="transaction-info">
+                    <div class="transaction-category">${category?.emoji || ''} ${category?.name || 'Unknown'}</div>
+                    <div class="transaction-wallet">${wallet?.name || 'Unknown'}</div>
+                    ${transaction.notes ? `<div class="transaction-notes">${transaction.notes}</div>` : ''}
                 </div>
-            `;
-        }).join('');
-
-        const content = `
-            <div style="max-height: 400px; overflow-y: auto;">
-                <h4 style="margin-bottom: 15px; text-align: center;">Transaksi pada ${Utils.formatDate(dateString)}</h4>
-                ${transactionsHTML}
-                <div style="text-align: center; margin-top: 15px;">
-                    <button class="btn btn-secondary" onclick="Utils.closeModal('dayTransactionsModal')" style="width: 100%;">Tutup</button>
+                <div class="transaction-amount ${typeClass}">
+                    ${amountPrefix}${Utils.formatCurrency(transaction.amount)}
                 </div>
             </div>
         `;
+    }).join('');
 
-        Utils.createModal('dayTransactionsModal', `Transaksi ${Utils.formatDate(dateString)}`, content);
-        Utils.openModal('dayTransactionsModal');
-    }
+    const formattedDate = Utils.formatDate(dateString);
+    const content = `
+        <div style="max-height: 400px; overflow-y: auto;">
+            <h4 style="margin-bottom: 15px; text-align: center;">Transaksi pada ${formattedDate}</h4>
+            ${transactionsHTML}
+            <div style="text-align: center; margin-top: 15px;">
+                <button class="btn btn-secondary" onclick="Utils.closeModal('dayTransactionsModal')" style="width: 100%;">Tutup</button>
+            </div>
+        </div>
+    `;
+
+    Utils.createModal('dayTransactionsModal', `Transaksi ${formattedDate}`, content);
+    Utils.openModal('dayTransactionsModal');
+}
 
     renderSettings(container) {
         container.innerHTML = `
