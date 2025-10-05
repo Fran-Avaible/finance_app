@@ -505,3 +505,269 @@ body {
 @media (min-width: 1024px) {
     .app-container { max-width: 800px; }
 }
+
+/* ===== LIABILITY STYLES ===== */
+.liability-item {
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm) 0;
+    background: var(--light-color);
+    border-radius: var(--border-radius-sm);
+    border-left: 4px solid var(--warning-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.liability-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.liability-item.paid {
+    border-left-color: var(--success-color);
+    opacity: 0.7;
+}
+
+.liability-item.overdue {
+    border-left-color: var(--danger-color);
+    background: #ffe6e6;
+}
+
+.payment-schedule-item {
+    padding: var(--spacing-sm);
+    margin: var(--spacing-xs) 0;
+    background: #f8f9fa;
+    border-radius: var(--border-radius-sm);
+    border-left: 3px solid var(--info-color);
+}
+
+.debt-progress {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 8px;
+    margin: 8px 0;
+}
+
+.debt-progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--success-color);
+    transition: width 0.3s ease;
+}
+
+.liability-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+}
+
+.stat-card {
+    background: white;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-sm);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+}
+
+/* ===== SUB TAB NAVIGATION ===== */
+.sub-tab-navigation {
+    display: flex;
+    gap: 5px;
+    background: rgba(255,255,255,0.1);
+    padding: 5px;
+    border-radius: var(--border-radius-sm);
+    backdrop-filter: blur(10px);
+}
+
+.sub-tab-navigation .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: auto;
+}
+
+/* Bill type specific colors */
+.bill-electricity { border-left-color: #f39c12 !important; }
+.bill-water { border-left-color: #3498db !important; }
+.bill-internet { border-left-color: #9b59b6 !important; }
+.bill-phone { border-left-color: #2ecc71 !important; }
+.bill-subscription { border-left-color: #e74c3c !important; }
+.bill-credit-card { border-left-color: #34495e !important; }
+.bill-insurance { border-left-color: #1abc9c !important; }
+
+/* ===== DARK MODE VARIABLES ===== */
+:root {
+    /* Light mode (default) */
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --success-color: #2ecc71;
+    --danger-color: #e74c3c;
+    --warning-color: #f39c12;
+    --info-color: #3498db;
+    --dark-color: #2c3e50;
+    --light-color: #ecf0f1;
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --card-bg: #ffffff;
+    --border-color: #e0e0e0;
+    --shadow-color: rgba(0,0,0,0.1);
+    --modal-bg: #ffffff;
+    --input-bg: #ffffff;
+    --input-border: #ddd;
+}
+
+[data-theme="dark"] {
+    /* Dark mode */
+    --primary-color: #7c93fb;
+    --secondary-color: #8a63d2;
+    --success-color: #27ae60;
+    --danger-color: #c0392b;
+    --warning-color: #d35400;
+    --info-color: #2980b9;
+    --dark-color: #ecf0f1;
+    --light-color: #2c3e50;
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --card-bg: #2d2d2d;
+    --border-color: #404040;
+    --shadow-color: rgba(0,0,0,0.3);
+    --modal-bg: #2d2d2d;
+    --input-bg: #3d3d3d;
+    --input-border: #555;
+}
+
+/* ===== DARK MODE STYLES ===== */
+[data-theme="dark"] body {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 15px var(--shadow-color);
+}
+
+[data-theme="dark"] .app-header {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .total-balance {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .tab-navigation {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .tab-btn {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .tab-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .btn-outline {
+    background: transparent;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+[data-theme="dark"] .form-control {
+    background: var(--input-bg);
+    border: 2px solid var(--input-border);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .form-control:focus {
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .modal-content {
+    background: var(--modal-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .modal-close {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .wallet-card,
+[data-theme="dark"] .transaction-item,
+[data-theme="dark"] .liability-item,
+[data-theme="dark"] .payment-schedule-item {
+    background: var(--card-bg);
+    border-left-color: var(--primary-color);
+}
+
+[data-theme="dark"] .empty-state {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .progress-bar-container {
+    background: var(--border-color);
+}
+
+[data-theme="dark"] .calendar-grid {
+    background: var(--card-bg);
+}
+
+[data-theme="dark"] .calendar-day {
+    background: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .calendar-day.empty {
+    background: var(--bg-color);
+}
+
+[data-theme="dark"] .calendar-day.today {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: var(--primary-color);
+}
+
+/* Dark mode toggle button */
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-lg);
+}
+
+.theme-toggle .icon {
+    font-size: 20px;
+    transition: transform 0.3s ease;
+}
+
+[data-theme="dark"] .theme-toggle .icon {
+    transform: rotate(180deg);
+}
