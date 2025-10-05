@@ -1,17 +1,71 @@
 // ===== MAIN APP =====
 class FinanceApp {
-    constructor() {
-        this.currentTab = 'dashboard';
-        this.calendarDate = new Date();
-        this.init();
-    }
+// Di FinanceApp constructor, tambahkan:
+constructor() {
+    this.currentTab = 'dashboard';
+    this.calendarDate = new Date();
+    this.budgetSubTab = 'budget';
+    this.liabilitiesSubTab = 'liabilities';
+    this.init();
+}
 
-    init() {
-        DB.init();
-        this.setupEventListeners();
-        this.render();
-        this.updateTotalBalance();
+// Di method init(), tambahkan:
+init() {
+    DB.init();
+    this.setupEventListeners();
+    Utils.initTheme(); // Initialize theme
+    this.render();
+    this.updateTotalBalance();
+}
+
+// Tambahkan method untuk settings theme
+renderThemeSettings() {
+    const currentTheme = Utils.getTheme();
+    
+    return `
+        <div class="form-group">
+            <label class="form-label">🎨 Tampilan</label>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn ${currentTheme === 'light' ? 'btn-primary' : 'btn-outline'}" 
+                        onclick="app.changeTheme('light')" style="flex: 1;">
+                    ☀️ Mode Terang
+                </button>
+                <button class="btn ${currentTheme === 'dark' ? 'btn-primary' : 'btn-outline'}" 
+                        onclick="app.changeTheme('dark')" style="flex: 1;">
+                    🌙 Mode Gelap
+                </button>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+            <div style="text-align: center; padding: 10px; background: ${currentTheme === 'light' ? '#ffffff' : '#2d2d2d'}; border-radius: 8px; border: 2px solid ${currentTheme === 'light' ? '#667eea' : 'transparent'};">
+                <div style="font-size: 24px;">☀️</div>
+                <div style="font-size: 12px; margin-top: 5px;">Terang</div>
+            </div>
+            <div style="text-align: center; padding: 10px; background: ${currentTheme === 'dark' ? '#2d2d2d' : '#1a1a1a'}; border-radius: 8px; border: 2px solid ${currentTheme === 'dark' ? '#7c93fb' : 'transparent'}; color: white;">
+                <div style="font-size: 24px;">🌙</div>
+                <div style="font-size: 12px; margin-top: 5px;">Gelap</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 10px; background: var(--light-color); border-radius: 8px;">
+            <p style="font-size: 12px; margin: 0; color: var(--text-color);">
+                💡 <strong>Tips:</strong> Mode gelap lebih nyaman di malam hari dan menghemat baterai
+            </p>
+        </div>
+    `;
+}
+
+// Method untuk ganti theme
+changeTheme(theme) {
+    Utils.setTheme(theme);
+    Utils.showToast(`Mode ${theme === 'dark' ? 'gelap' : 'terang'} diaktifkan`, 'success');
+    
+    // Re-render settings tab untuk update tombol active state
+    if (this.currentTab === 'settings') {
+        this.renderSettings(document.getElementById('settings-tab'));
     }
+}
 
     setupEventListeners() {
         // Tab navigation
@@ -68,6 +122,9 @@ class FinanceApp {
             case 'gold':
                 this.renderGold(tabContent);
                 break;
+            case 'liabilities':
+                this.renderLiabilities(tabContent);
+        break;
             default:
                 tabContent.innerHTML = '<div class="card"><p>Tab sedang dalam pengembangan</p></div>';
         }
@@ -292,12 +349,20 @@ renderTransactions(container) {
 
 // ===== GOLD FEATURE METHODS =====
 
+// ===== GOLD FEATURE IN APP.JS =====
+
+// Tambahkan method ini di FinanceApp class
+
+// Method utama render gold tab
 renderGold(container) {
     container.innerHTML = `
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">💰 Harga Emas Hari Ini</h3>
-                <button class="btn btn-outline btn-sm" onclick="app.updateGoldPrice()">🔄 Update</button>
+                <div>
+                    <button class="btn btn-outline btn-sm" onclick="app.updateGoldPrice()">🔄 Update</button>
+                    <button class="btn btn-outline btn-sm" onclick="app.forceRefreshGoldDisplay()">🔍 Refresh Display</button>
+                </div>
             </div>
             <div id="goldPriceDisplay">
                 <!-- Harga akan diisi oleh updateGoldPriceDisplay -->
@@ -354,6 +419,34 @@ renderGold(container) {
     this.renderGoldTransactions();
 }
 
+// Method untuk update harga emas - SUDAH DIPERBAIKI
+async updateGoldPrice() {
+    try {
+        Utils.showToast('Mengambil harga terbaru dari Pegadaian...', 'info');
+        
+        const newPrice = await DB.fetchPegadaianGoldPrice();
+        
+        // SIMPAN harga baru ke database
+        DB.saveGoldPrice(newPrice);
+        
+        this.updateGoldPriceDisplay();
+        Utils.showToast('Harga emas berhasil diupdate!', 'success');
+        
+    } catch (error) {
+        console.error('Update gold price error:', error);
+        Utils.showToast('Gagal mengambil harga otomatis', 'error');
+        this.showManualGoldPriceInput();
+    }
+}
+
+// Force refresh display
+forceRefreshGoldDisplay() {
+    console.log('🔍 Force refreshing gold display...');
+    this.updateGoldPriceDisplay();
+    Utils.showToast('Display diperbarui!', 'info');
+}
+
+// Display harga emas
 updateGoldPriceDisplay() {
     const container = document.getElementById('goldPriceDisplay');
     if (!container) return;
@@ -362,7 +455,6 @@ updateGoldPriceDisplay() {
     const lastUpdate = price.lastUpdate ? new Date(price.lastUpdate).toLocaleString('id-ID') : 'Belum diupdate';
     const source = price.source || 'Manual';
     
-    // Hitung selisih/spread
     const spread = price.buy - price.sell;
     const spreadPercentage = ((spread / price.buy) * 100).toFixed(1);
     
@@ -402,45 +494,23 @@ updateGoldPriceDisplay() {
     `;
 }
 
-async updateGoldPrice() {
-    try {
-        Utils.showToast('Mengambil harga terbaru dari Pegadaian...', 'info');
-        
-        const newPrice = await DB.fetchPegadaianGoldPrice();
-        
-        this.updateGoldPriceDisplay();
-        Utils.showToast('Harga emas Pegadaian berhasil diupdate!', 'success');
-        
-    } catch (error) {
-        console.error('Update gold price error:', error);
-        Utils.showToast('Gagal mengambil harga Pegadaian', 'error');
-        
-        // Fallback ke manual input
-        this.showManualGoldPriceInput();
-    }
-}
-
+// Input manual harga emas
 showManualGoldPriceInput() {
     const currentPrice = DB.getGoldPrice();
     
     const content = `
-        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
-            <strong>⚠️ Gagal mengambil harga otomatis</strong>
-            <p style="margin: 5px 0 0 0; font-size: 12px;">Silakan input harga manual dari website Pegadaian</p>
-        </div>
-        
         <form id="manualGoldPriceForm">
             <div class="form-group">
-                <label class="form-label">💰 Harga Beli Pegadaian (per gram)</label>
+                <label class="form-label">💰 Harga Beli (per gram)</label>
                 <input type="number" class="form-control" id="manualBuyPrice" 
                        value="${currentPrice.buy}" required>
-                <small style="color: #666;">Harga saat Anda membeli emas di Pegadaian</small>
+                <small style="color: #666;">Harga saat Anda membeli emas</small>
             </div>
             <div class="form-group">
-                <label class="form-label">💰 Harga Jual Pegadaian (per gram)</label>
+                <label class="form-label">💰 Harga Jual (per gram)</label>
                 <input type="number" class="form-control" id="manualSellPrice" 
                        value="${currentPrice.sell}" required>
-                <small style="color: #666;">Harga saat Anda menjual emas ke Pegadaian</small>
+                <small style="color: #666;">Harga saat Anda menjual emas</small>
             </div>
             <div style="display: flex; gap: 10px;">
                 <button type="submit" class="btn btn-primary" style="flex: 1;">
@@ -452,22 +522,9 @@ showManualGoldPriceInput() {
                 </button>
             </div>
         </form>
-        
-        <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 8px;">
-            <h4>🔗 Cara Cek Harga Pegadaian:</h4>
-            <ol style="font-size: 12px; margin: 10px 0; padding-left: 20px;">
-                <li>Buka <strong>www.pegadaian.co.id</strong></li>
-                <li>Cari menu <strong>"Harga Emas"</strong> atau <strong>"Logam Mulia"</strong></li>
-                <li>Catat harga <strong>Beli</strong> dan <strong>Jual</strong></li>
-                <li>Input di form atas</li>
-            </ol>
-            <p style="font-size: 11px; color: #666; margin: 0;">
-                💡 <strong>Tip:</strong> Harga jual biasanya 3-5% lebih rendah dari harga beli
-            </p>
-        </div>
     `;
 
-    Utils.createModal('manualGoldPriceModal', 'Input Harga Pegadaian Manual', content);
+    Utils.createModal('manualGoldPriceModal', 'Input Harga Emas Manual', content);
     Utils.openModal('manualGoldPriceModal');
 
     document.getElementById('manualGoldPriceForm').onsubmit = (e) => {
@@ -494,15 +551,16 @@ processManualGoldPrice() {
         buy: buyPrice,
         sell: sellPrice,
         lastUpdate: new Date().toISOString(),
-        source: 'Pegadaian (Manual)'
+        source: 'Manual Input'
     };
 
     DB.saveGoldPrice(newPrice);
     Utils.closeModal('manualGoldPriceModal');
     this.updateGoldPriceDisplay();
-    Utils.showToast('Harga Pegadaian berhasil disimpan!', 'success');
+    Utils.showToast('Harga emas berhasil disimpan!', 'success');
 }
 
+// Portfolio emas
 renderGoldPortfolio() {
     const container = document.getElementById('goldPortfolio');
     const wallets = DB.getGoldWallets();
@@ -533,6 +591,7 @@ renderGoldPortfolio() {
                     <div class="wallet-balance">${wallet.weight.toFixed(3)} gram (${wallet.purity}K)</div>
                     <div style="font-size: 12px; color: #666;">
                         Nilai: ${Utils.formatCurrency(currentValue)}
+                        ${wallet.buyPrice > 0 ? `• Rata-rata: ${Utils.formatCurrency(wallet.buyPrice)}/g` : ''}
                     </div>
                 </div>
                 <div style="text-align: right;">
@@ -548,6 +607,7 @@ renderGoldPortfolio() {
     }).join('');
 }
 
+// Ringkasan investasi
 renderGoldSummary() {
     const container = document.getElementById('goldSummary');
     const wallets = DB.getGoldWallets();
@@ -593,6 +653,7 @@ renderGoldSummary() {
     `;
 }
 
+// Riwayat transaksi emas
 renderGoldTransactions() {
     const container = document.getElementById('goldTransactions');
     const transactions = DB.getGoldTransactions().sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -620,10 +681,10 @@ renderGoldTransactions() {
         let amountText = '';
 
         if (transaction.type === 'buy') {
-            description = `Beli ${transaction.weight.toFixed(3)}g dari ${fromWallet?.name || 'Unknown'}`;
+            description = `Beli ${transaction.weight.toFixed(3)}g`;
             amountText = `-${Utils.formatCurrency(transaction.totalAmount)}`;
         } else if (transaction.type === 'sell') {
-            description = `Jual ${transaction.weight.toFixed(3)}g ke ${toWallet?.name || 'Unknown'}`;
+            description = `Jual ${transaction.weight.toFixed(3)}g`;
             amountText = `+${Utils.formatCurrency(transaction.totalAmount)}`;
         } else if (transaction.type === 'transfer') {
             description = `Transfer ${transaction.weight.toFixed(3)}g`;
@@ -645,13 +706,14 @@ renderGoldTransactions() {
     }).join('');
 }
 
+// Modal beli emas
 showBuyGoldModal() {
-    const cashWallets = DB.getWallets();
+    const cashWallets = DB.getWallets().filter(w => w.balance > 0);
     const goldWallets = DB.getGoldWallets();
     const goldPrice = DB.getGoldPrice();
     
     if (cashWallets.length === 0) {
-        Utils.showToast('Buat dompet uang terlebih dahulu!', 'error');
+        Utils.showToast('Tidak ada dompet uang dengan saldo!', 'error');
         this.showAddWalletModal();
         return;
     }
@@ -693,7 +755,8 @@ showBuyGoldModal() {
             <div class="form-group">
                 <label class="form-label">Harga Beli per gram</label>
                 <input type="number" class="form-control" id="buyPricePerGram" 
-                       value="${goldPrice.buy}" required>
+                       value="${goldPrice.buy}" required
+                       oninput="app.calculateGoldFromIDR()">
             </div>
             <div class="form-group">
                 <label class="form-label">Estimasi Emas Didapat</label>
@@ -717,6 +780,7 @@ showBuyGoldModal() {
     };
 }
 
+// Kalkulasi gram dari IDR
 calculateGoldFromIDR() {
     const idrInput = document.getElementById('buyAmountIDR');
     const estimatedGoldInput = document.getElementById('estimatedGold');
@@ -731,6 +795,7 @@ calculateGoldFromIDR() {
     }
 }
 
+// Proses beli emas
 processBuyGold() {
     const fromWalletId = document.getElementById('buyFromWallet').value;
     const toWalletId = document.getElementById('buyToWallet').value;
@@ -821,6 +886,7 @@ processBuyGold() {
     this.renderRecentTransactions();
 }
 
+// Modal jual emas
 showSellGoldModal() {
     const goldWallets = DB.getGoldWallets().filter(w => w.weight > 0);
     const cashWallets = DB.getWallets();
@@ -860,25 +926,21 @@ showSellGoldModal() {
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">Jumlah Penjualan</label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div>
-                        <label style="font-size: 12px;">Dalam Gram</label>
-                        <input type="number" class="form-control" id="sellAmountGram" 
-                               placeholder="Jumlah gram" step="0.001" required
-                               oninput="app.calculateIDRFromGoldSell()">
-                    </div>
-                    <div>
-                        <label style="font-size: 12px;">Dalam Rupiah</label>
-                        <input type="number" class="form-control" id="sellAmountIDR" 
-                               placeholder="Akan terhitung" readonly style="background: #f5f5f5;">
-                    </div>
-                </div>
+                <label class="form-label">Jumlah Penjualan (gram)</label>
+                <input type="number" class="form-control" id="sellAmountGram" 
+                       placeholder="Jumlah gram" step="0.001" required
+                       oninput="app.calculateIDRFromGoldSell()">
             </div>
             <div class="form-group">
                 <label class="form-label">Harga Jual per gram</label>
                 <input type="number" class="form-control" id="sellPricePerGram" 
-                       value="${goldPrice.sell}" required>
+                       value="${goldPrice.sell}" required
+                       oninput="app.calculateIDRFromGoldSell()">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Estimasi Penerimaan</label>
+                <input type="text" class="form-control" id="estimatedIDR" 
+                       placeholder="Akan terhitung otomatis" readonly style="background: #f5f5f5;">
             </div>
             <div class="form-group">
                 <label class="form-label">Catatan (opsional)</label>
@@ -897,20 +959,22 @@ showSellGoldModal() {
     };
 }
 
+// Kalkulasi IDR dari gram
 calculateIDRFromGoldSell() {
     const gramInput = document.getElementById('sellAmountGram');
-    const idrInput = document.getElementById('sellAmountIDR');
+    const idrInput = document.getElementById('estimatedIDR');
     const pricePerGram = parseFloat(document.getElementById('sellPricePerGram').value);
     
     if (gramInput.value && pricePerGram > 0) {
         const gramAmount = parseFloat(gramInput.value);
         const idrAmount = gramAmount * pricePerGram;
-        idrInput.value = Math.round(idrAmount);
+        idrInput.value = Utils.formatCurrency(idrAmount);
     } else {
         idrInput.value = '';
     }
 }
 
+// Proses jual emas
 processSellGold() {
     const fromWalletId = document.getElementById('sellFromWallet').value;
     const toWalletId = document.getElementById('sellToWallet').value;
@@ -951,6 +1015,10 @@ processSellGold() {
 
     // Proses: kurangi emas
     goldWallet.weight -= gramAmount;
+    // Jika emas habis, reset buyPrice
+    if (goldWallet.weight === 0) {
+        goldWallet.buyPrice = 0;
+    }
     DB.saveGoldWallets(DB.getGoldWallets().map(w => w.id === goldWallet.id ? goldWallet : w));
 
     // Proses: tambah uang
@@ -999,6 +1067,7 @@ processSellGold() {
     this.renderRecentTransactions();
 }
 
+// Kalkulator emas
 showGoldCalculator() {
     const goldPrice = DB.getGoldPrice();
     
@@ -1016,7 +1085,7 @@ showGoldCalculator() {
                     <input type="number" class="form-control" id="calcGoldGrams" 
                            step="0.001" oninput="app.calculateGoldConversion()">
                 </div>
-                <div class="result-card">
+                <div style="background: var(--light-color); padding: 15px; border-radius: 8px; margin-top: 10px;">
                     <strong>Nilai dalam Rupiah:</strong>
                     <div id="calcIDRResult" style="font-weight: bold; color: var(--success-color); margin-top: 5px;">
                         Rp 0
@@ -1030,7 +1099,7 @@ showGoldCalculator() {
                     <input type="number" class="form-control" id="calcIDRAmount" 
                            oninput="app.calculateGoldConversion()">
                 </div>
-                <div class="result-card">
+                <div style="background: var(--light-color); padding: 15px; border-radius: 8px; margin-top: 10px;">
                     <strong>Estimasi Emas:</strong>
                     <div id="calcGoldResult" style="font-weight: bold; color: var(--info-color); margin-top: 5px;">
                         0 gram
@@ -1049,7 +1118,7 @@ showGoldCalculator() {
             </select>
         </div>
         
-        <div class="result-card" style="background: var(--light-color); padding: 15px; border-radius: 8px; margin-top: 15px;">
+        <div style="background: var(--light-color); padding: 15px; border-radius: 8px; margin-top: 15px;">
             <strong>Konversi Kemurnian:</strong>
             <div id="calcPurityResult" style="margin-top: 5px;">
                 Isi berat atau jumlah untuk melihat konversi
@@ -1061,6 +1130,7 @@ showGoldCalculator() {
     Utils.openModal('goldCalculator');
 }
 
+// Kalkulasi konversi emas
 calculateGoldConversion() {
     const pricePerGram = parseFloat(document.getElementById('calcGoldPrice').value) || 0;
     const goldGrams = parseFloat(document.getElementById('calcGoldGrams').value) || 0;
@@ -1094,6 +1164,7 @@ calculateGoldConversion() {
     }
 }
 
+// Tambah dompet emas
 showAddGoldWalletModal() {
     const content = `
         <form id="addGoldWalletForm">
@@ -1148,6 +1219,7 @@ showAddGoldWalletModal() {
     };
 }
 
+// Detail dompet emas
 showGoldWalletDetail(walletId) {
     const wallet = DB.getGoldWallets().find(w => w.id === walletId);
     if (!wallet) return;
@@ -1219,6 +1291,7 @@ showGoldWalletDetail(walletId) {
     Utils.openModal('goldWalletDetailModal');
 }
 
+// Hapus dompet emas
 deleteGoldWallet(walletId) {
     if (confirm('Hapus dompet emas ini? Semua emas di dalamnya akan hilang!')) {
         const wallets = DB.getGoldWallets().filter(w => w.id !== walletId);
@@ -1236,6 +1309,7 @@ deleteGoldWallet(walletId) {
     }
 }
 
+// Helper methods untuk kategori
 getOrCreateGoldCategory() {
     const categories = DB.getCategories();
     let goldCategory = categories.find(c => c.name === 'Investasi Emas' && c.type === 'expense');
@@ -1272,8 +1346,8 @@ getOrCreateGoldIncomeCategory() {
     return goldCategory.id;
 }
 
+// Detail transaksi emas (placeholder)
 showGoldTransactionDetail(transactionId) {
-    // Implementasi detail transaksi emas (opsional)
     Utils.showToast('Fitur detail transaksi emas dalam pengembangan', 'info');
 }
 
@@ -1337,25 +1411,95 @@ showGoldTransactionDetail(transactionId) {
         }).join('');
     }
 
-    renderBudget(container) {
-        container.innerHTML = `
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">🎯 Budget & Anggaran</h3>
-                    <button class="btn btn-primary" onclick="app.showAddBudgetModal()">+ Tambah Budget</button>
+// GANTI method renderBudget dengan yang INI:
+renderBudget(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🎯 Budget & Tabungan</h3>
+                <div class="sub-tab-navigation">
+                    <button class="btn btn-outline btn-sm ${this.budgetSubTab === 'budget' ? 'active' : ''}" 
+                            onclick="app.switchBudgetSubTab('budget')">
+                        📊 Anggaran
+                    </button>
+                    <button class="btn btn-outline btn-sm ${this.budgetSubTab === 'savings' ? 'active' : ''}" 
+                            onclick="app.switchBudgetSubTab('savings')">
+                        🎯 Target Tabungan
+                    </button>
                 </div>
-                <div id="budgetsList"></div>
             </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">📊 Progress Budget</h3>
-                </div>
-                <div id="budgetProgress"></div>
+            <div id="budgetSubContent">
+                <!-- Konten akan diisi berdasarkan sub tab -->
             </div>
-        `;
-        this.renderBudgets();
+        </div>
+    `;
+
+    // Default sub tab
+    if (!this.budgetSubTab) this.budgetSubTab = 'budget';
+    this.renderBudgetSubContent();
+}
+
+// Method untuk switch sub tab budget
+switchBudgetSubTab(subTab) {
+    this.budgetSubTab = subTab;
+    
+    // Update active state buttons
+    document.querySelectorAll('.sub-tab-navigation .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    this.renderBudgetSubContent();
+}
+
+// Render konten berdasarkan sub tab
+renderBudgetSubContent() {
+    const container = document.getElementById('budgetSubContent');
+    if (!container) return;
+
+    if (this.budgetSubTab === 'budget') {
+        this.renderBudgetContent(container);
+    } else {
+        this.renderSavingsContent(container);
     }
+}
+
+// Konten budget (existing)
+renderBudgetContent(container) {
+    container.innerHTML = `
+        <div style="text-align: right; margin-bottom: 15px;">
+            <button class="btn btn-primary" onclick="app.showAddBudgetModal()">+ Tambah Budget</button>
+        </div>
+        <div id="budgetsList"></div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">📊 Progress Budget</h3>
+            </div>
+            <div id="budgetProgress"></div>
+        </div>
+    `;
+    this.renderBudgets();
+}
+
+// Konten savings goals (NEW)
+renderSavingsContent(container) {
+    container.innerHTML = `
+        <div style="text-align: right; margin-bottom: 15px;">
+            <button class="btn btn-primary" onclick="app.showAddSavingsGoalModal()">+ Target Tabungan Baru</button>
+        </div>
+        <div id="savingsGoalsList"></div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">💰 Progress Menabung</h3>
+            </div>
+            <div id="savingsProgress"></div>
+        </div>
+    `;
+    this.renderSavingsGoals();
+    this.renderSavingsProgress();
+}
 
     renderBudgets() {
         const budgets = DB.getBudgets();
@@ -1451,6 +1595,216 @@ showGoldTransactionDetail(transactionId) {
             `;
         }).join('');
     }
+
+    // Methods untuk Savings Goals
+renderSavingsGoals() {
+    const container = document.getElementById('savingsGoalsList');
+    const goals = DB.getSavingsGoals();
+    
+    if (goals.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="emoji">🎯</div>
+                <p>Belum ada target tabungan</p>
+                <p style="font-size: 14px; color: #666;">Buat target pertama Anda untuk mulai menabung!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = goals.map(goal => {
+        const progress = (goal.currentAmount / goal.targetAmount) * 100;
+        const daysLeft = this.calculateDaysLeft(goal.targetDate);
+        const savedPercentage = Math.min(progress, 100);
+        
+        let statusClass = '';
+        let statusText = '';
+        
+        if (savedPercentage >= 100) {
+            statusClass = 'success';
+            statusText = '🎉 Tercapai!';
+        } else if (daysLeft < 0) {
+            statusClass = 'danger';
+            statusText = '⏰ Terlambat';
+        } else if (daysLeft <= 7) {
+            statusClass = 'warning';
+            statusText = `${daysLeft} hari lagi`;
+        } else {
+            statusText = `${daysLeft} hari lagi`;
+        }
+
+        return `
+            <div class="card" style="margin-bottom: 15px; border-left: 4px solid var(--${statusClass}-color);">
+                <div class="card-header">
+                    <h4 class="card-title">${goal.emoji} ${goal.name}</h4>
+                    <span style="color: var(--${statusClass}-color); font-weight: bold;">${statusText}</span>
+                </div>
+                
+                <div style="margin: 10px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                        <span>Terkumpul: <strong>${Utils.formatCurrency(goal.currentAmount)}</strong></span>
+                        <span>Target: <strong>${Utils.formatCurrency(goal.targetAmount)}</strong></span>
+                    </div>
+                    
+                    <div class="progress-bar-container" style="margin: 8px 0;">
+                        <div class="progress-bar" style="width: ${savedPercentage}%; background: var(--${statusClass}-color);"></div>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                        <span>${Math.round(savedPercentage)}%</span>
+                        <span>Sisa: ${Utils.formatCurrency(goal.targetAmount - goal.currentAmount)}</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success btn-sm" onclick="app.showAddToSavingsModal('${goal.id}')">
+                        💰 Tambah
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="app.showEditSavingsGoalModal('${goal.id}')">
+                        ✏️ Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="app.deleteSavingsGoal('${goal.id}')">
+                        🗑️ Hapus
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+renderSavingsProgress() {
+    const container = document.getElementById('savingsProgress');
+    const goals = DB.getSavingsGoals();
+    
+    if (goals.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada progress untuk ditampilkan</p>';
+        return;
+    }
+
+    const totalTarget = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
+    const totalCurrent = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+    const overallProgress = totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : 0;
+
+    container.innerHTML = `
+        <div style="text-align: center; margin-bottom: 15px;">
+            <h4>Total Tabungan</h4>
+            <p style="font-size: 24px; font-weight: bold; color: var(--success-color);">
+                ${Utils.formatCurrency(totalCurrent)} / ${Utils.formatCurrency(totalTarget)}
+            </p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" style="width: ${overallProgress}%; background: var(--success-color);"></div>
+            </div>
+            <p style="font-size: 14px; color: #666;">${Math.round(overallProgress)}% dari total target</p>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center;">
+            <div class="stat-card">
+                <div style="font-size: 12px; color: #666;">Target Aktif</div>
+                <div style="font-weight: bold;">${goals.length}</div>
+            </div>
+            <div class="stat-card">
+                <div style="font-size: 12px; color: #666;">Tercapai</div>
+                <div style="font-weight: bold; color: var(--success-color);">
+                    ${goals.filter(g => g.currentAmount >= g.targetAmount).length}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Modal untuk tambah savings goal
+showAddSavingsGoalModal() {
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
+    ).join('');
+
+    const content = `
+        <form id="addSavingsGoalForm">
+            <div class="form-group">
+                <label class="form-label">Nama Target Tabungan</label>
+                <input type="text" class="form-control" id="savingsGoalName" 
+                       placeholder="Contoh: Liburan Bali, DP Rumah, dll" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Emoji</label>
+                <input type="text" class="form-control" id="savingsGoalEmoji" value="🎯" maxlength="2">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Target Jumlah</label>
+                <input type="number" class="form-control" id="savingsTargetAmount" required min="1">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tanggal Target</label>
+                <input type="date" class="form-control" id="savingsTargetDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dompet Sumber</label>
+                <select class="form-control" id="savingsWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Catatan (opsional)</label>
+                <textarea class="form-control" id="savingsNotes" rows="2" placeholder="Deskripsi target tabungan..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">🎯 Buat Target Tabungan</button>
+        </form>
+    `;
+
+    Utils.createModal('addSavingsGoalModal', 'Buat Target Tabungan', content);
+    Utils.openModal('addSavingsGoalModal');
+
+    // Set minimum date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('savingsTargetDate').min = tomorrow.toISOString().split('T')[0];
+
+    document.getElementById('addSavingsGoalForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processAddSavingsGoal();
+    };
+}
+
+processAddSavingsGoal() {
+    const name = document.getElementById('savingsGoalName').value;
+    const emoji = document.getElementById('savingsGoalEmoji').value;
+    const targetAmount = parseFloat(document.getElementById('savingsTargetAmount').value);
+    const targetDate = document.getElementById('savingsTargetDate').value;
+    const walletId = document.getElementById('savingsWallet').value;
+    const notes = document.getElementById('savingsNotes').value;
+
+    if (!name || !targetAmount || !targetDate || !walletId) {
+        Utils.showToast('Harap isi semua field yang wajib!', 'error');
+        return;
+    }
+
+    const goals = DB.getSavingsGoals();
+    goals.push({
+        id: Utils.generateId(),
+        name,
+        emoji,
+        targetAmount,
+        currentAmount: 0,
+        targetDate,
+        walletId,
+        notes,
+        createdAt: new Date().toISOString()
+    });
+
+    if (DB.saveSavingsGoals(goals)) {
+        Utils.closeModal('addSavingsGoalModal');
+        this.renderSavingsGoals();
+        this.renderSavingsProgress();
+        Utils.showToast('Target tabungan berhasil dibuat!', 'success');
+    }
+}
 
     renderReports(container) {
         container.innerHTML = `
@@ -1888,6 +2242,8 @@ showDayTransactions(dateString) {
     Utils.openModal('dayTransactionsModal');
 }
 
+// Di renderSettings(), perbaiki bagian Data Management:
+// Di renderSettings(), tambahkan section theme:
 renderSettings(container) {
     container.innerHTML = `
         <div class="card">
@@ -1897,26 +2253,31 @@ renderSettings(container) {
             
             <div class="tab-grid tab-grid-2">
                 <div>
-                    <h4>💾 Data Management</h4>
+                    <h4>🎨 Tampilan</h4>
+                    <div id="themeSettings">
+                        ${this.renderThemeSettings()}
+                    </div>
+                    
+                    <h4 style="margin-top: 20px;">💾 Data Management</h4>
                     <div class="data-management">
                         <button class="btn btn-warning" onclick="app.exportToCSV()">
                             <span>📤</span> Export CSV
                         </button>
-                        <button class="btn btn-info" onclick="app.downloadBackup()">
-                            <span>💾</span> Backup Data
+                        <button class="btn btn-info" onclick="app.showBackupModal()">
+                            <span>💾</span> Backup LENGKAP
                         </button>
                     </div>
+                    
                     <div class="data-management">
                         <label class="file-input-label btn btn-primary">
-                            <span>📁</span> Restore Backup
-                            <input type="file" id="restoreFile" class="file-input" accept=".json" onchange="app.restoreBackup(event)">
-                        </label>
-                        <label class="file-input-label btn btn-primary">
-                            <span>📄</span> Import CSV
-                            <input type="file" id="csvFile" class="file-input" accept=".csv" onchange="app.importFromCSV(event)">
+                            <span>📁</span> Restore LENGKAP
+                            <input type="file" id="restoreFile" class="file-input" accept=".json" 
+                                   onchange="app.restoreCompleteBackup(event)">
                         </label>
                     </div>
-                    <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" onclick="app.confirmClearAllData()">
+                    
+                    <button class="btn btn-danger" style="width: 100%; margin-top: 10px;" 
+                            onclick="app.confirmClearAllData()">
                         <span>🗑️</span> Hapus Semua Data
                     </button>
                 </div>
@@ -1924,7 +2285,8 @@ renderSettings(container) {
                 <div>
                     <h4>🏷️ Kelola Kategori</h4>
                     <div id="categoriesManagement"></div>
-                    <button class="btn btn-primary" onclick="app.showAddCategoryModal()" style="width: 100%; margin-top: 10px;">
+                    <button class="btn btn-primary" onclick="app.showAddCategoryModal()" 
+                            style="width: 100%; margin-top: 10px;">
                         + Tambah Kategori
                     </button>
                 </div>
@@ -1939,10 +2301,11 @@ renderSettings(container) {
                 <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
                 <h3>Finance Super App</h3>
                 <p style="color: #666; margin-bottom: 15px;">Aplikasi manajemen keuangan offline</p>
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;">
+                <div style="background: var(--light-color); padding: 15px; border-radius: 10px;">
                     <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
                     <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
-                    <p><strong>Versi:</strong> 1.0.0</p>
+                    <p><strong>Versi:</strong> 2.0.0</p>
+                    <p><strong>Mode:</strong> <span id="currentThemeDisplay">${Utils.getTheme() === 'dark' ? '🌙 Gelap' : '☀️ Terang'}</span></p>
                 </div>
             </div>
         </div>
@@ -1988,6 +2351,80 @@ exportToCSV() {
         console.error('Export CSV error:', error);
         Utils.showToast('Gagal mengekspor CSV', 'error');
     }
+}
+
+// Tambahkan method untuk validasi data di app.js
+validateBackupData(data) {
+    const required = ['wallets', 'categories', 'transactions'];
+    const missing = required.filter(field => !data[field]);
+    
+    if (missing.length > 0) {
+        throw new Error(`Data backup tidak lengkap: ${missing.join(', ')}`);
+    }
+    
+    // Validasi struktur data
+    if (!Array.isArray(data.wallets) || !Array.isArray(data.transactions)) {
+        throw new Error('Struktur data backup tidak valid');
+    }
+    
+    return true;
+}
+
+// Update method restoreCompleteBackup dengan validasi:
+restoreCompleteBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!confirm('⚠️ RESTORE akan MENGGANTI SEMUA DATA! Yakin?')) {
+        event.target.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Validasi data backup
+            this.validateBackupData(data);
+            
+            if (DB.restoreData(e.target.result)) {
+                Utils.closeModal('backupModal');
+                this.showRestoreSuccessMessage(data);
+            }
+            
+        } catch (error) {
+            console.error('Restore validation failed:', error);
+            Utils.showToast(`Backup tidak valid: ${error.message}`, 'error');
+        }
+        
+        event.target.value = '';
+    };
+    
+    reader.readAsText(file);
+}
+
+showRestoreSuccessMessage(data) {
+    // Render ulang semua tab
+    this.render();
+    this.updateTotalBalance();
+    this.updateAppInfo();
+    
+    // Tampilkan summary
+    const counts = data.dataCount || {};
+    const message = `
+        ✅ Data berhasil dipulihkan!
+        • ${counts.wallets || 0} Dompet
+        • ${counts.transactions || 0} Transaksi  
+        • ${counts.budgets || 0} Budget
+        • ${counts.goldWallets || 0} Dompet Emas
+        • ${counts.liabilities || 0} Liabilitas
+    `;
+    
+    Utils.showToast(message, 'success');
+    
+    // Log detail untuk debugging
+    console.log('🎉 Restore completed:', counts);
 }
 
 importFromCSV(event) {
@@ -2105,6 +2542,577 @@ importFromCSV(event) {
         document.getElementById('totalTransactionsCount').textContent = DB.getTransactions().length;
         document.getElementById('totalWalletsCount').textContent = DB.getWallets().length;
     }
+
+    // Method untuk menambah tabungan
+showAddToSavingsModal(goalId) {
+    const goal = DB.getSavingsGoals().find(g => g.id === goalId);
+    if (!goal) return;
+
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
+    ).join('');
+
+    const remaining = goal.targetAmount - goal.currentAmount;
+
+    const content = `
+        <form id="addToSavingsForm">
+            <div class="form-group">
+                <label class="form-label">Target Tabungan</label>
+                <input type="text" class="form-control" value="${goal.emoji} ${goal.name}" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Sisa Target</label>
+                <input type="text" class="form-control" value="${Utils.formatCurrency(remaining)}" readonly>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Jumlah yang Ditambahkan</label>
+                <input type="number" class="form-control" id="savingsAddAmount" 
+                       max="${remaining}" min="1" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dari Dompet</label>
+                <select class="form-control" id="savingsSourceWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tanggal</label>
+                <input type="date" class="form-control" id="savingsAddDate" 
+                       value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Catatan (opsional)</label>
+                <input type="text" class="form-control" id="savingsAddNotes" 
+                       placeholder="Contoh: Setoran bulanan">
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                💰 Tambah ke Tabungan
+            </button>
+        </form>
+    `;
+
+    Utils.createModal('addToSavingsModal', 'Tambah Tabungan', content);
+    Utils.openModal('addToSavingsModal');
+
+    document.getElementById('addToSavingsForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processAddToSavings(goalId);
+    };
+}
+
+processAddToSavings(goalId) {
+    const goals = DB.getSavingsGoals();
+    const goalIndex = goals.findIndex(g => g.id === goalId);
+    if (goalIndex === -1) return;
+
+    const amount = parseFloat(document.getElementById('savingsAddAmount').value);
+    const walletId = document.getElementById('savingsSourceWallet').value;
+    const date = document.getElementById('savingsAddDate').value;
+    const notes = document.getElementById('savingsAddNotes').value;
+
+    // Validasi
+    if (!amount || amount <= 0) {
+        Utils.showToast('Jumlah harus lebih dari 0!', 'error');
+        return;
+    }
+
+    const wallet = DB.getWallets().find(w => w.id === walletId);
+    if (!wallet) {
+        Utils.showToast('Dompet tidak ditemukan!', 'error');
+        return;
+    }
+
+    if (wallet.balance < amount) {
+        Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
+        return;
+    }
+
+    const remaining = goals[goalIndex].targetAmount - goals[goalIndex].currentAmount;
+    if (amount > remaining) {
+        Utils.showToast(`Jumlah melebihi sisa target! Sisa: ${Utils.formatCurrency(remaining)}`, 'error');
+        return;
+    }
+
+    try {
+        // 1. Kurangi saldo dompet
+        wallet.balance -= amount;
+        DB.saveWallets(DB.getWallets().map(w => w.id === wallet.id ? wallet : w));
+
+        // 2. Tambah ke tabungan
+        goals[goalIndex].currentAmount += amount;
+        DB.saveSavingsGoals(goals);
+
+        // 3. Catat transaksi tabungan
+        const savingsTransactions = DB.getSavingsTransactions();
+        savingsTransactions.push({
+            id: Utils.generateId(),
+            goalId: goalId,
+            amount: amount,
+            walletId: walletId,
+            date: date,
+            notes: notes,
+            createdAt: new Date().toISOString()
+        });
+        DB.saveSavingsTransactions(savingsTransactions);
+
+        // 4. Catat sebagai transaksi pengeluaran biasa
+        const transactions = DB.getTransactions();
+        transactions.push({
+            id: Utils.generateId(),
+            type: 'expense',
+            amount: amount,
+            walletId: walletId,
+            categoryId: this.getOrCreateSavingsCategory(),
+            date: date,
+            notes: `Tabungan: ${goals[goalIndex].name}` + (notes ? ` - ${notes}` : ''),
+            createdAt: new Date().toISOString()
+        });
+        DB.saveTransactions(transactions);
+
+        Utils.closeModal('addToSavingsModal');
+        this.renderSavingsGoals();
+        this.renderSavingsProgress();
+        this.renderWalletsList();
+        this.updateTotalBalance();
+        Utils.showToast(`Berhasil menambahkan ${Utils.formatCurrency(amount)} ke tabungan!`, 'success');
+
+    } catch (error) {
+        console.error('Error adding to savings:', error);
+        Utils.showToast('Terjadi kesalahan saat menambah tabungan', 'error');
+    }
+}
+
+// Method untuk edit savings goal
+showEditSavingsGoalModal(goalId) {
+    const goals = DB.getSavingsGoals();
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}" ${w.id === goal.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`
+    ).join('');
+
+    const content = `
+        <form id="editSavingsGoalForm">
+            <div class="form-group">
+                <label class="form-label">Nama Target Tabungan</label>
+                <input type="text" class="form-control" id="editSavingsGoalName" 
+                       value="${goal.name}" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Emoji</label>
+                <input type="text" class="form-control" id="editSavingsGoalEmoji" 
+                       value="${goal.emoji}" maxlength="2">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Target Jumlah</label>
+                <input type="number" class="form-control" id="editSavingsTargetAmount" 
+                       value="${goal.targetAmount}" required min="1">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tanggal Target</label>
+                <input type="date" class="form-control" id="editSavingsTargetDate" 
+                       value="${goal.targetDate}" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dompet Sumber</label>
+                <select class="form-control" id="editSavingsWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Catatan</label>
+                <textarea class="form-control" id="editSavingsNotes" rows="2">${goal.notes || ''}</textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                    💾 Simpan Perubahan
+                </button>
+                <button type="button" class="btn btn-danger" style="flex: 1;" 
+                        onclick="app.deleteSavingsGoal('${goal.id}')">
+                    🗑️ Hapus
+                </button>
+            </div>
+        </form>
+    `;
+
+    Utils.createModal('editSavingsGoalModal', 'Edit Target Tabungan', content);
+    Utils.openModal('editSavingsGoalModal');
+
+    document.getElementById('editSavingsGoalForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processEditSavingsGoal(goalId);
+    };
+}
+
+processEditSavingsGoal(goalId) {
+    const goals = DB.getSavingsGoals();
+    const goalIndex = goals.findIndex(g => g.id === goalId);
+    if (goalIndex === -1) return;
+
+    const name = document.getElementById('editSavingsGoalName').value;
+    const emoji = document.getElementById('editSavingsGoalEmoji').value;
+    const targetAmount = parseFloat(document.getElementById('editSavingsTargetAmount').value);
+    const targetDate = document.getElementById('editSavingsTargetDate').value;
+    const walletId = document.getElementById('editSavingsWallet').value;
+    const notes = document.getElementById('editSavingsNotes').value;
+
+    if (!name || !targetAmount || !targetDate || !walletId) {
+        Utils.showToast('Harap isi semua field yang wajib!', 'error');
+        return;
+    }
+
+    // Jika target amount dikurangi, pastikan tidak kurang dari current amount
+    if (targetAmount < goals[goalIndex].currentAmount) {
+        Utils.showToast('Target tidak boleh kurang dari jumlah yang sudah terkumpul!', 'error');
+        return;
+    }
+
+    goals[goalIndex] = {
+        ...goals[goalIndex],
+        name,
+        emoji,
+        targetAmount,
+        targetDate,
+        walletId,
+        notes
+    };
+
+    if (DB.saveSavingsGoals(goals)) {
+        Utils.closeModal('editSavingsGoalModal');
+        this.renderSavingsGoals();
+        this.renderSavingsProgress();
+        Utils.showToast('Target tabungan berhasil diperbarui!', 'success');
+    }
+}
+
+// Method untuk hapus savings goal
+deleteSavingsGoal(goalId) {
+    if (!confirm('Hapus target tabungan ini? Semua progress akan hilang.')) {
+        return;
+    }
+
+    const goals = DB.getSavingsGoals().filter(g => g.id !== goalId);
+    const savingsTransactions = DB.getSavingsTransactions().filter(t => t.goalId !== goalId);
+    
+    if (DB.saveSavingsGoals(goals) && DB.saveSavingsTransactions(savingsTransactions)) {
+        this.renderSavingsGoals();
+        this.renderSavingsProgress();
+        Utils.showToast('Target tabungan berhasil dihapus!', 'success');
+    }
+}
+
+// Helper method untuk kategori tabungan
+getOrCreateSavingsCategory() {
+    const categories = DB.getCategories();
+    let savingsCategory = categories.find(c => c.name === 'Tabungan' && c.type === 'expense');
+    
+    if (!savingsCategory) {
+        savingsCategory = {
+            id: Utils.generateId(),
+            name: 'Tabungan',
+            type: 'expense',
+            emoji: '💰'
+        };
+        categories.push(savingsCategory);
+        DB.saveCategories(categories);
+    }
+    
+    return savingsCategory.id;
+}
+
+// Method untuk menandai tagihan sebagai sudah dibayar
+markBillAsPaid(billId) {
+    const bills = DB.getBillReminders();
+    const billIndex = bills.findIndex(b => b.id === billId);
+    if (billIndex === -1) return;
+
+    const bill = bills[billIndex];
+    
+    // Validasi saldo dompet
+    const wallet = DB.getWallets().find(w => w.id === bill.walletId);
+    if (!wallet) {
+        Utils.showToast('Dompet tidak ditemukan!', 'error');
+        return;
+    }
+
+    if (wallet.balance < bill.amount) {
+        Utils.showToast('Saldo dompet tidak mencukupi untuk membayar tagihan!', 'error');
+        return;
+    }
+
+    if (!confirm(`Bayar tagihan ${bill.name} sebesar ${Utils.formatCurrency(bill.amount)}?`)) {
+        return;
+    }
+
+    try {
+        // 1. Kurangi saldo dompet
+        wallet.balance -= bill.amount;
+        DB.saveWallets(DB.getWallets().map(w => w.id === wallet.id ? wallet : w));
+
+        // 2. Tandai sebagai sudah dibayar
+        bills[billIndex].paid = true;
+        bills[billIndex].paidDate = new Date().toISOString();
+        DB.saveBillReminders(bills);
+
+        // 3. Jika recurring, buat tagihan baru untuk bulan berikutnya
+        if (bill.recurring) {
+            const nextDueDate = new Date(bill.dueDate);
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+            
+            bills.push({
+                id: Utils.generateId(),
+                type: bill.type,
+                name: bill.name,
+                emoji: bill.emoji,
+                amount: bill.amount,
+                dueDate: nextDueDate.toISOString().split('T')[0],
+                walletId: bill.walletId,
+                recurring: true,
+                notes: bill.notes,
+                paid: false,
+                createdAt: new Date().toISOString()
+            });
+            DB.saveBillReminders(bills);
+        }
+
+        // 4. Catat sebagai transaksi pengeluaran
+        const transactions = DB.getTransactions();
+        transactions.push({
+            id: Utils.generateId(),
+            type: 'expense',
+            amount: bill.amount,
+            walletId: bill.walletId,
+            categoryId: this.getOrCreateBillCategory(bill.type),
+            date: new Date().toISOString().split('T')[0],
+            notes: `Tagihan: ${bill.name}` + (bill.notes ? ` - ${bill.notes}` : ''),
+            createdAt: new Date().toISOString()
+        });
+        DB.saveTransactions(transactions);
+
+        this.renderBillReminders();
+        this.renderUpcomingBills();
+        this.renderWalletsList();
+        this.updateTotalBalance();
+        
+        const message = bill.recurring ? 
+            `Tagihan ${bill.name} berhasil dibayar! Tagihan berikutnya sudah dibuat.` :
+            `Tagihan ${bill.name} berhasil dibayar!`;
+            
+        Utils.showToast(message, 'success');
+
+    } catch (error) {
+        console.error('Error paying bill:', error);
+        Utils.showToast('Terjadi kesalahan saat membayar tagihan', 'error');
+    }
+}
+
+// Method untuk edit bill
+showEditBillModal(billId) {
+    const bills = DB.getBillReminders();
+    const bill = bills.find(b => b.id === billId);
+    if (!bill) return;
+
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}" ${w.id === bill.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`
+    ).join('');
+
+    const billTypes = [
+        { value: 'electricity', name: '⚡ Listrik (PLN)', emoji: '⚡' },
+        { value: 'water', name: '💧 Air (PDAM)', emoji: '💧' },
+        { value: 'internet', name: '🌐 Internet', emoji: '🌐' },
+        { value: 'phone', name: '📱 Pulsa & Paket Data', emoji: '📱' },
+        { value: 'subscription', name: '📺 Streaming & Subscription', emoji: '📺' },
+        { value: 'credit-card', name: '💳 Kartu Kredit', emoji: '💳' },
+        { value: 'insurance', name: '🛡️ Asuransi', emoji: '🛡️' },
+        { value: 'other', name: '📄 Lainnya', emoji: '📄' }
+    ];
+
+    const billTypeOptions = billTypes.map(type => 
+        `<option value="${type.value}" ${type.value === bill.type ? 'selected' : ''} data-emoji="${type.emoji}">${type.name}</option>`
+    ).join('');
+
+    const content = `
+        <form id="editBillForm">
+            <div class="form-group">
+                <label class="form-label">Jenis Tagihan</label>
+                <select class="form-control" id="editBillType" required onchange="app.onEditBillTypeChange()">
+                    <option value="">Pilih jenis tagihan</option>
+                    ${billTypeOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Nama Tagihan</label>
+                <input type="text" class="form-control" id="editBillName" value="${bill.name}" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Emoji</label>
+                <input type="text" class="form-control" id="editBillEmoji" value="${bill.emoji}" maxlength="2">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Jumlah Tagihan</label>
+                <input type="number" class="form-control" id="editBillAmount" value="${bill.amount}" required min="1">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tanggal Jatuh Tempo</label>
+                <input type="date" class="form-control" id="editBillDueDate" value="${bill.dueDate}" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dompet untuk Pembayaran</label>
+                <select class="form-control" id="editBillWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" id="editBillRecurring" ${bill.recurring ? 'checked' : ''}>
+                    Berulang Setiap Bulan
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Catatan</label>
+                <textarea class="form-control" id="editBillNotes" rows="2">${bill.notes || ''}</textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                    💾 Simpan Perubahan
+                </button>
+                <button type="button" class="btn btn-danger" style="flex: 1;" 
+                        onclick="app.deleteBill('${bill.id}')">
+                    🗑️ Hapus
+                </button>
+            </div>
+        </form>
+    `;
+
+    Utils.createModal('editBillModal', 'Edit Tagihan', content);
+    Utils.openModal('editBillModal');
+
+    document.getElementById('editBillForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processEditBill(billId);
+    };
+}
+
+onEditBillTypeChange() {
+    const billType = document.getElementById('editBillType');
+    const billName = document.getElementById('editBillName');
+    const billEmoji = document.getElementById('editBillEmoji');
+    
+    const selectedOption = billType.options[billType.selectedIndex];
+    const emoji = selectedOption.getAttribute('data-emoji');
+    
+    if (emoji) {
+        billEmoji.value = emoji;
+    }
+}
+
+processEditBill(billId) {
+    const bills = DB.getBillReminders();
+    const billIndex = bills.findIndex(b => b.id === billId);
+    if (billIndex === -1) return;
+
+    const type = document.getElementById('editBillType').value;
+    const name = document.getElementById('editBillName').value;
+    const emoji = document.getElementById('editBillEmoji').value;
+    const amount = parseFloat(document.getElementById('editBillAmount').value);
+    const dueDate = document.getElementById('editBillDueDate').value;
+    const walletId = document.getElementById('editBillWallet').value;
+    const recurring = document.getElementById('editBillRecurring').checked;
+    const notes = document.getElementById('editBillNotes').value;
+
+    if (!type || !name || !amount || !dueDate || !walletId) {
+        Utils.showToast('Harap isi semua field yang wajib!', 'error');
+        return;
+    }
+
+    bills[billIndex] = {
+        ...bills[billIndex],
+        type,
+        name,
+        emoji,
+        amount,
+        dueDate,
+        walletId,
+        recurring,
+        notes
+    };
+
+    if (DB.saveBillReminders(bills)) {
+        Utils.closeModal('editBillModal');
+        this.renderBillReminders();
+        this.renderUpcomingBills();
+        Utils.showToast('Tagihan berhasil diperbarui!', 'success');
+    }
+}
+
+// Method untuk hapus bill
+deleteBill(billId) {
+    if (!confirm('Hapus tagihan ini?')) {
+        return;
+    }
+
+    const bills = DB.getBillReminders().filter(b => b.id !== billId);
+    if (DB.saveBillReminders(bills)) {
+        this.renderBillReminders();
+        this.renderUpcomingBills();
+        Utils.showToast('Tagihan berhasil dihapus!', 'success');
+    }
+}
+
+// Helper method untuk kategori tagihan
+getOrCreateBillCategory(billType) {
+    const categories = DB.getCategories();
+    const categoryNames = {
+        'electricity': 'Listrik',
+        'water': 'Air',
+        'internet': 'Internet',
+        'phone': 'Telepon & Data',
+        'subscription': 'Subscription',
+        'credit-card': 'Kartu Kredit',
+        'insurance': 'Asuransi',
+        'other': 'Tagihan Lainnya'
+    };
+    
+    const categoryName = categoryNames[billType] || 'Tagihan Lainnya';
+    let billCategory = categories.find(c => c.name === categoryName && c.type === 'expense');
+    
+    if (!billCategory) {
+        billCategory = {
+            id: Utils.generateId(),
+            name: categoryName,
+            type: 'expense',
+            emoji: '📄'
+        };
+        categories.push(billCategory);
+        DB.saveCategories(categories);
+    }
+    
+    return billCategory.id;
+}
 
     // === MODAL METHODS ===
     showAddWalletModal() {
@@ -2884,20 +3892,113 @@ importFromCSV(event) {
         };
     }
 
+// GANTI method showBackupModal dengan yang INI:
     showBackupModal() {
         const content = `
-            <p>Backup data Anda untuk keamanan.</p>
-            <button class="btn btn-primary" style="width: 100%; margin-bottom: var(--spacing-sm);" onclick="app.downloadBackup()">
-                💾 Download Backup
+            <div style="margin-bottom: 20px;">
+                <h4>💾 Backup Data Lengkap</h4>
+                <p>Backup akan menyimpan <strong>SEMUA data</strong> termasuk:</p>
+                <ul style="text-align: left; font-size: 14px;">
+                    <li>💵 Dompet & Saldo</li>
+                    <li>📊 Transaksi & Kategori</li>
+                    <li>🎯 Budget & Anggaran</li>
+                    <li>🪙 Data Emas (Portfolio & Transaksi)</li>
+                    <li>🏦 Liabilitas & Pembayaran Hutang</li>
+                    <li>⚙️ Semua pengaturan</li>
+                </ul>
+            </div>
+            
+            <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" 
+                    onclick="app.downloadCompleteBackup()">
+                💾 Download Backup LENGKAP
             </button>
-            <label class="btn btn-outline" style="width: 100%; display: block; text-align: center;">
-                📁 Restore Backup
-                <input type="file" id="restoreFile" accept=".json" style="display: none;" onchange="app.restoreBackup(event)">
+            
+            <label class="btn btn-outline" style="width: 100%; display: block; text-align: center; margin-bottom: 10px;">
+                📁 Restore Backup LENGKAP
+                <input type="file" id="restoreFile" accept=".json" style="display: none;" 
+                    onchange="app.restoreCompleteBackup(event)">
             </label>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                <h5>⚠️ Penting!</h5>
+                <p style="font-size: 12px; margin: 0;">
+                    • Backup hanya file .json<br>
+                    • Restore akan <strong>mengganti semua data</strong><br>
+                    • Simpan backup di tempat aman
+                </p>
+            </div>
         `;
 
-        Utils.createModal('backupModal', 'Backup Data', content);
+        Utils.createModal('backupModal', 'Backup & Restore LENGKAP', content);
         Utils.openModal('backupModal');
+    }
+
+    // TAMBAHKAN method baru:
+    downloadCompleteBackup() {
+        if (DB.backupData()) {
+            Utils.closeModal('backupModal');
+        }
+    }
+
+    restoreCompleteBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Konfirmasi restore
+        if (!confirm('RESTORE akan MENGGANTI SEMUA DATA yang ada! Yakin ingin melanjutkan?')) {
+            event.target.value = ''; // Reset file input
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // Validasi file backup
+                if (!data.wallets || !data.transactions) {
+                    throw new Error('File backup tidak valid');
+                }
+                
+                if (DB.restoreData(e.target.result)) {
+                    Utils.closeModal('backupModal');
+                    app.render();
+                    app.updateTotalBalance();
+                    app.updateAppInfo();
+                    
+                    // Tampilkan summary data yang dipulihkan
+                    setTimeout(() => {
+                        const summary = data.dataCount ? `
+                            Dompet: ${data.dataCount.wallets || 0}
+                            Transaksi: ${data.dataCount.transactions || 0}
+                            Budget: ${data.dataCount.budgets || 0}
+                            Dompet Emas: ${data.dataCount.goldWallets || 0}
+                            Liabilitas: ${data.dataCount.liabilities || 0}
+                        ` : 'Data berhasil dipulihkan!';
+                        
+                        Utils.showToast('Backup LENGKAP berhasil dipulihkan!', 'success');
+                        console.log('📊 Restore summary:', data.dataCount);
+                    }, 500);
+                    
+                } else {
+                    throw new Error('Gagal memproses file backup');
+                }
+                
+            } catch (error) {
+                console.error('Restore error:', error);
+                Utils.showToast('File backup tidak valid atau rusak!', 'error');
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        };
+        
+        reader.onerror = () => {
+            Utils.showToast('Gagal membaca file!', 'error');
+            event.target.value = '';
+        };
+        
+        reader.readAsText(file);
     }
 
     downloadBackup() {
@@ -2951,6 +4052,841 @@ importFromCSV(event) {
     render() {
         this.renderTabContent(this.currentTab);
     }
+
+    // Ganti method renderDiabilitas dengan renderLiabilities
+
+// GANTI method renderLiabilities dengan yang INI:
+renderLiabilities(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">🏦 Liabilitas & Tagihan</h3>
+                <div class="sub-tab-navigation">
+                    <button class="btn btn-outline btn-sm ${this.liabilitiesSubTab === 'liabilities' ? 'active' : ''}" 
+                            onclick="app.switchLiabilitiesSubTab('liabilities')">
+                        💰 Hutang
+                    </button>
+                    <button class="btn btn-outline btn-sm ${this.liabilitiesSubTab === 'bills' ? 'active' : ''}" 
+                            onclick="app.switchLiabilitiesSubTab('bills')">
+                        📅 Tagihan
+                    </button>
+                </div>
+            </div>
+            <div id="liabilitiesSubContent">
+                <!-- Konten akan diisi berdasarkan sub tab -->
+            </div>
+        </div>
+    `;
+
+    // Default sub tab
+    if (!this.liabilitiesSubTab) this.liabilitiesSubTab = 'liabilities';
+    this.renderLiabilitiesSubContent();
+}
+
+// Method untuk switch sub tab liabilities
+switchLiabilitiesSubTab(subTab) {
+    this.liabilitiesSubTab = subTab;
+    
+    // Update active state buttons
+    document.querySelectorAll('.sub-tab-navigation .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    this.renderLiabilitiesSubContent();
+}
+
+// Render konten berdasarkan sub tab
+renderLiabilitiesSubContent() {
+    const container = document.getElementById('liabilitiesSubContent');
+    if (!container) return;
+
+    if (this.liabilitiesSubTab === 'liabilities') {
+        this.renderLiabilitiesContent(container);
+    } else {
+        this.renderBillsContent(container);
+    }
+}
+
+// Konten liabilitas (existing)
+renderLiabilitiesContent(container) {
+    container.innerHTML = `
+        <div style="text-align: right; margin-bottom: 15px;">
+            <button class="btn btn-primary" onclick="app.showAddLiabilityModal()">+ Tambah Hutang</button>
+        </div>
+        <div id="liabilitiesList"></div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">📊 Ringkasan Hutang</h3>
+            </div>
+            <div id="liabilitiesSummary"></div>
+        </div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">📅 Jadwal Pembayaran</h3>
+            </div>
+            <div id="paymentSchedule"></div>
+        </div>
+    `;
+    this.renderLiabilitiesList();
+    this.renderLiabilitiesSummary();
+    this.renderPaymentSchedule();
+}
+
+// Konten bill reminders (NEW)
+renderBillsContent(container) {
+    container.innerHTML = `
+        <div style="text-align: right; margin-bottom: 15px;">
+            <button class="btn btn-primary" onclick="app.showAddBillModal()">+ Tagihan Baru</button>
+        </div>
+        <div id="billRemindersList"></div>
+        
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">🔔 Tagihan Mendatang</h3>
+            </div>
+            <div id="upcomingBills"></div>
+        </div>
+    `;
+    this.renderBillReminders();
+    this.renderUpcomingBills();
+}
+
+// Methods untuk Bill Reminders
+renderBillReminders() {
+    const container = document.getElementById('billRemindersList');
+    const bills = DB.getBillReminders();
+    
+    if (bills.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="emoji">📅</div>
+                <p>Belum ada pengingat tagihan</p>
+                <p style="font-size: 14px; color: #666;">Tambahkan tagihan rutin seperti listrik, air, atau internet!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = bills.map(bill => {
+        const daysLeft = this.calculateDaysLeft(bill.dueDate);
+        let statusClass = '';
+        let statusText = '';
+        
+        if (bill.paid) {
+            statusClass = 'success';
+            statusText = '✅ Lunas';
+        } else if (daysLeft < 0) {
+            statusClass = 'danger';
+            statusText = '⏰ Terlambat';
+        } else if (daysLeft === 0) {
+            statusClass = 'warning';
+            statusText = '⚠️ Hari ini';
+        } else if (daysLeft <= 3) {
+            statusClass = 'warning';
+            statusText = `${daysLeft} hari lagi`;
+        } else {
+            statusText = `${daysLeft} hari lagi`;
+        }
+
+        return `
+            <div class="card" style="margin-bottom: 15px; border-left: 4px solid var(--${statusClass}-color);">
+                <div class="card-header">
+                    <h4 class="card-title">${bill.emoji} ${bill.name}</h4>
+                    <span style="color: var(--${statusClass}-color); font-weight: bold;">${statusText}</span>
+                </div>
+                
+                <div style="margin: 10px 0;">
+                    <p style="margin: 5px 0;"><strong>${Utils.formatCurrency(bill.amount)}</strong></p>
+                    <p style="margin: 5px 0; font-size: 14px; color: #666;">
+                        Jatuh tempo: ${Utils.formatDate(bill.dueDate)}
+                    </p>
+                    ${bill.notes ? `<p style="margin: 5px 0; font-size: 14px; color: #666;">${bill.notes}</p>` : ''}
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success btn-sm" onclick="app.markBillAsPaid('${bill.id}')" 
+                            ${bill.paid ? 'disabled' : ''}>
+                        💸 Bayar
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="app.showEditBillModal('${bill.id}')">
+                        ✏️ Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="app.deleteBill('${bill.id}')">
+                        🗑️ Hapus
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+renderUpcomingBills() {
+    const container = document.getElementById('upcomingBills');
+    const bills = DB.getBillReminders()
+        .filter(bill => !bill.paid)
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        .slice(0, 5);
+
+    if (bills.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada tagihan mendatang</p>';
+        return;
+    }
+
+    container.innerHTML = bills.map(bill => {
+        const daysLeft = this.calculateDaysLeft(bill.dueDate);
+        return `
+            <div class="payment-schedule-item">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${bill.emoji} ${bill.name}</strong>
+                        <p style="margin: 0; font-size: 12px; color: #666;">
+                            ${Utils.formatDate(bill.dueDate)} • ${Utils.formatCurrency(bill.amount)}
+                        </p>
+                    </div>
+                    <span style="color: ${daysLeft <= 3 ? 'var(--danger-color)' : daysLeft <= 7 ? 'var(--warning-color)' : 'var(--success-color)'};">
+                        ${daysLeft} hari
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Modal untuk tambah bill reminder
+showAddBillModal() {
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
+    ).join('');
+
+    const billTypes = [
+        { value: 'electricity', name: '⚡ Listrik (PLN)', emoji: '⚡' },
+        { value: 'water', name: '💧 Air (PDAM)', emoji: '💧' },
+        { value: 'internet', name: '🌐 Internet', emoji: '🌐' },
+        { value: 'phone', name: '📱 Pulsa & Paket Data', emoji: '📱' },
+        { value: 'subscription', name: '📺 Streaming & Subscription', emoji: '📺' },
+        { value: 'credit-card', name: '💳 Kartu Kredit', emoji: '💳' },
+        { value: 'insurance', name: '🛡️ Asuransi', emoji: '🛡️' },
+        { value: 'other', name: '📄 Lainnya', emoji: '📄' }
+    ];
+
+    const billTypeOptions = billTypes.map(type => 
+        `<option value="${type.value}" data-emoji="${type.emoji}">${type.name}</option>`
+    ).join('');
+
+    const content = `
+        <form id="addBillForm">
+            <div class="form-group">
+                <label class="form-label">Jenis Tagihan</label>
+                <select class="form-control" id="billType" required onchange="app.onBillTypeChange()">
+                    <option value="">Pilih jenis tagihan</option>
+                    ${billTypeOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Nama Tagihan</label>
+                <input type="text" class="form-control" id="billName" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Emoji</label>
+                <input type="text" class="form-control" id="billEmoji" value="📄" maxlength="2">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Jumlah Tagihan</label>
+                <input type="number" class="form-control" id="billAmount" required min="1">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Tanggal Jatuh Tempo</label>
+                <input type="date" class="form-control" id="billDueDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Dompet untuk Pembayaran</label>
+                <select class="form-control" id="billWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Berulang Setiap Bulan</label>
+                <input type="checkbox" id="billRecurring" checked>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Catatan (opsional)</label>
+                <textarea class="form-control" id="billNotes" rows="2" placeholder="No. pelanggan atau info tambahan..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%;">📅 Tambah Pengingat Tagihan</button>
+        </form>
+    `;
+
+    Utils.createModal('addBillModal', 'Tambah Pengingat Tagihan', content);
+    Utils.openModal('addBillModal');
+
+    // Set default due date to 10th of next month
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    nextMonth.setDate(10);
+    document.getElementById('billDueDate').value = nextMonth.toISOString().split('T')[0];
+
+    document.getElementById('addBillForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processAddBill();
+    };
+}
+
+// Handler untuk perubahan jenis tagihan
+onBillTypeChange() {
+    const billType = document.getElementById('billType');
+    const billName = document.getElementById('billName');
+    const billEmoji = document.getElementById('billEmoji');
+    
+    const selectedOption = billType.options[billType.selectedIndex];
+    const emoji = selectedOption.getAttribute('data-emoji');
+    
+    if (emoji) {
+        billEmoji.value = emoji;
+    }
+    
+    // Auto-fill name based on type
+    if (billType.value && !billName.value) {
+        billName.value = selectedOption.text;
+    }
+}
+
+processAddBill() {
+    const type = document.getElementById('billType').value;
+    const name = document.getElementById('billName').value;
+    const emoji = document.getElementById('billEmoji').value;
+    const amount = parseFloat(document.getElementById('billAmount').value);
+    const dueDate = document.getElementById('billDueDate').value;
+    const walletId = document.getElementById('billWallet').value;
+    const recurring = document.getElementById('billRecurring').checked;
+    const notes = document.getElementById('billNotes').value;
+
+    if (!type || !name || !amount || !dueDate || !walletId) {
+        Utils.showToast('Harap isi semua field yang wajib!', 'error');
+        return;
+    }
+
+    const bills = DB.getBillReminders();
+    bills.push({
+        id: Utils.generateId(),
+        type,
+        name,
+        emoji,
+        amount,
+        dueDate,
+        walletId,
+        recurring,
+        notes,
+        paid: false,
+        createdAt: new Date().toISOString()
+    });
+
+    if (DB.saveBillReminders(bills)) {
+        Utils.closeModal('addBillModal');
+        this.renderBillReminders();
+        this.renderUpcomingBills();
+        Utils.showToast('Pengingat tagihan berhasil ditambahkan!', 'success');
+    }
+}
+
+renderLiabilitiesList() {
+    const container = document.getElementById('liabilitiesList');
+    const liabilities = DB.getLiabilities();
+    
+    if (liabilities.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="emoji">😊</div>
+                <p>Tidak ada liabilitas. Tambahkan liabilitas pertama Anda!</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = liabilities.map(liability => {
+        const paidAmount = this.calculatePaidAmount(liability.id);
+        const remaining = liability.amount - paidAmount;
+        const progressPercent = (paidAmount / liability.amount) * 100;
+        const daysLeft = this.calculateDaysLeft(liability.dueDate);
+        
+        let statusClass = '';
+        if (paidAmount >= liability.amount) {
+            statusClass = 'paid';
+        } else if (daysLeft < 0) {
+            statusClass = 'overdue';
+        }
+
+        return `
+            <div class="liability-item ${statusClass}" onclick="app.showLiabilityDetail('${liability.id}')">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="flex: 1;">
+                        <h4>${liability.name}</h4>
+                        <p>${Utils.formatCurrency(liability.amount)} • ${liability.interestRate}% • Jatuh tempo: ${Utils.formatDate(liability.dueDate)}</p>
+                        <div class="debt-progress">
+                            <div class="debt-progress-bar" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <p style="font-size: 12px; color: #666;">
+                            Terbayar: ${Utils.formatCurrency(paidAmount)} | Sisa: ${Utils.formatCurrency(remaining)}
+                            ${daysLeft > 0 ? `• ${daysLeft} hari lagi` : '<span style="color: var(--danger-color);">• Terlambat!</span>'}
+                        </p>
+                    </div>
+                    <button class="btn btn-success btn-sm" onclick="app.showPayLiabilityModal('${liability.id}'); event.stopPropagation();">
+                        Bayar
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+renderLiabilitiesSummary() {
+    const container = document.getElementById('liabilitiesSummary');
+    const liabilities = DB.getLiabilities();
+    
+    let totalAmount = 0;
+    let totalPaid = 0;
+    let totalRemaining = 0;
+    let overdueCount = 0;
+
+    liabilities.forEach(liability => {
+        totalAmount += liability.amount;
+        const paid = this.calculatePaidAmount(liability.id);
+        totalPaid += paid;
+        totalRemaining += (liability.amount - paid);
+        
+        if (this.calculateDaysLeft(liability.dueDate) < 0 && paid < liability.amount) {
+            overdueCount++;
+        }
+    });
+
+    container.innerHTML = `
+        <div class="liability-stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Liabilitas</div>
+                <div class="stat-value" style="color: var(--danger-color);">${Utils.formatCurrency(totalAmount)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Terbayar</div>
+                <div class="stat-value" style="color: var(--success-color);">${Utils.formatCurrency(totalPaid)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Sisa Hutang</div>
+                <div class="stat-value" style="color: var(--warning-color);">${Utils.formatCurrency(totalRemaining)}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Terlambat</div>
+                <div class="stat-value" style="color: ${overdueCount > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${overdueCount}</div>
+            </div>
+        </div>
+    `;
+}
+
+renderPaymentSchedule() {
+    const container = document.getElementById('paymentSchedule');
+    const liabilities = DB.getLiabilities()
+        .filter(liability => {
+            const paid = this.calculatePaidAmount(liability.id);
+            return paid < liability.amount;
+        })
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        .slice(0, 5);
+
+    if (liabilities.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada jadwal pembayaran</p>';
+        return;
+    }
+
+    container.innerHTML = liabilities.map(liability => {
+        const daysLeft = this.calculateDaysLeft(liability.dueDate);
+        const paid = this.calculatePaidAmount(liability.id);
+        const remaining = liability.amount - paid;
+
+        return `
+            <div class="payment-schedule-item">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${liability.name}</strong>
+                        <p style="margin: 0; font-size: 12px; color: #666;">
+                            ${Utils.formatDate(liability.dueDate)} • ${Utils.formatCurrency(remaining)}
+                        </p>
+                    </div>
+                    <span style="color: ${daysLeft <= 7 ? 'var(--danger-color)' : daysLeft <= 30 ? 'var(--warning-color)' : 'var(--success-color)'};">
+                        ${daysLeft} hari
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+renderPaymentHistory() {
+    const container = document.getElementById('paymentHistory');
+    const payments = DB.getLiabilityPayments()
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 10);
+
+    if (payments.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #666;">Belum ada riwayat pembayaran</p>';
+        return;
+    }
+
+    container.innerHTML = payments.map(payment => {
+        const liability = DB.getLiabilities().find(l => l.id === payment.liabilityId);
+        return `
+            <div class="payment-history-item">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${liability?.name || 'Unknown'}</strong>
+                        <p style="margin: 0; font-size: 12px; color: #666;">
+                            ${Utils.formatDate(payment.date)}
+                        </p>
+                    </div>
+                    <span style="color: var(--success-color); font-weight: bold;">
+                        -${Utils.formatCurrency(payment.amount)}
+                    </span>
+                </div>
+                ${payment.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">${payment.notes}</p>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+// Helper methods
+calculatePaidAmount(liabilityId) {
+    const payments = DB.getLiabilityPayments();
+    return payments
+        .filter(payment => payment.liabilityId === liabilityId)
+        .reduce((total, payment) => total + payment.amount, 0);
+}
+
+calculateDaysLeft(dueDate) {
+    const today = new Date();
+    const due = new Date(dueDate);
+    const diffTime = due - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+showAddLiabilityModal() {
+    const wallets = DB.getWallets();
+    const walletOptions = wallets.map(w => 
+        `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
+    ).join('');
+
+    const content = `
+        <form id="addLiabilityForm">
+            <div class="form-group">
+                <label class="form-label">Nama Liabilitas</label>
+                <input type="text" class="form-control" id="liabilityName" placeholder="Contoh: Kredit Mobil, Kartu Kredit BCA, dll" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Jenis Liabilitas</label>
+                <select class="form-control" id="liabilityType" required>
+                    <option value="credit-card">Kartu Kredit</option>
+                    <option value="loan">Pinjaman Bank</option>
+                    <option value="mortgage">KPR</option>
+                    <option value="personal">Pinjaman Pribadi</option>
+                    <option value="other">Lainnya</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Jumlah Hutang</label>
+                <input type="number" class="form-control" id="liabilityAmount" required min="1">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Suku Bunga (%) per tahun</label>
+                <input type="number" class="form-control" id="liabilityInterest" step="0.1" value="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tanggal Jatuh Tempo</label>
+                <input type="date" class="form-control" id="liabilityDueDate" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dompet untuk Pembayaran</label>
+                <select class="form-control" id="liabilityWallet" required>
+                    ${walletOptions}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Catatan (opsional)</label>
+                <textarea class="form-control" id="liabilityNotes" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">➕ Tambah Liabilitas</button>
+        </form>
+    `;
+
+    Utils.createModal('addLiabilityModal', 'Tambah Liabilitas', content);
+    Utils.openModal('addLiabilityModal');
+
+    // Set minimum date to today
+    document.getElementById('liabilityDueDate').min = new Date().toISOString().split('T')[0];
+
+    document.getElementById('addLiabilityForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processAddLiability();
+    };
+}
+
+processAddLiability() {
+    const name = document.getElementById('liabilityName').value;
+    const type = document.getElementById('liabilityType').value;
+    const amount = parseFloat(document.getElementById('liabilityAmount').value);
+    const interestRate = parseFloat(document.getElementById('liabilityInterest').value);
+    const dueDate = document.getElementById('liabilityDueDate').value;
+    const walletId = document.getElementById('liabilityWallet').value;
+    const notes = document.getElementById('liabilityNotes').value;
+
+    if (!name || !amount || !dueDate || !walletId) {
+        Utils.showToast('Harap isi semua field yang wajib!', 'error');
+        return;
+    }
+
+    const liabilities = DB.getLiabilities();
+    liabilities.push({
+        id: Utils.generateId(),
+        name,
+        type,
+        amount,
+        interestRate,
+        dueDate,
+        walletId,
+        notes,
+        createdAt: new Date().toISOString()
+    });
+
+    if (DB.saveLiabilities(liabilities)) {
+        Utils.closeModal('addLiabilityModal');
+        this.renderLiabilitiesList();
+        this.renderLiabilitiesSummary();
+        this.renderPaymentSchedule();
+        Utils.showToast('Liabilitas berhasil ditambahkan!', 'success');
+    }
+}
+
+showPayLiabilityModal(liabilityId) {
+    const liability = DB.getLiabilities().find(l => l.id === liabilityId);
+    if (!liability) return;
+
+    const paidAmount = this.calculatePaidAmount(liabilityId);
+    const remaining = liability.amount - paidAmount;
+
+    const content = `
+        <form id="payLiabilityForm">
+            <div class="form-group">
+                <label class="form-label">Liabilitas</label>
+                <input type="text" class="form-control" value="${liability.name}" disabled>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sisa Hutang</label>
+                <input type="text" class="form-control" value="${Utils.formatCurrency(remaining)}" disabled>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Jumlah Pembayaran</label>
+                <input type="number" class="form-control" id="paymentAmount" 
+                       max="${remaining}" min="1" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tanggal Pembayaran</label>
+                <input type="date" class="form-control" id="paymentDate" 
+                       value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Catatan (opsional)</label>
+                <input type="text" class="form-control" id="paymentNotes" 
+                       placeholder="Contoh: Angsuran ke-1">
+            </div>
+            <button type="submit" class="btn btn-success" style="width: 100%;">💸 Bayar</button>
+        </form>
+    `;
+
+    Utils.createModal('payLiabilityModal', 'Bayar Liabilitas', content);
+    Utils.openModal('payLiabilityModal');
+
+    document.getElementById('payLiabilityForm').onsubmit = (e) => {
+        e.preventDefault();
+        this.processPayment(liabilityId);
+    };
+}
+
+processPayment(liabilityId) {
+    const liability = DB.getLiabilities().find(l => l.id === liabilityId);
+    if (!liability) return;
+
+    const paymentAmount = parseFloat(document.getElementById('paymentAmount').value);
+    const paymentDate = document.getElementById('paymentDate').value;
+    const paymentNotes = document.getElementById('paymentNotes').value;
+
+    const paidAmount = this.calculatePaidAmount(liabilityId);
+    const remaining = liability.amount - paidAmount;
+
+    if (paymentAmount > remaining) {
+        Utils.showToast('Jumlah pembayaran melebihi sisa hutang!', 'error');
+        return;
+    }
+
+    // Check if wallet has enough balance
+    const wallet = DB.getWallets().find(w => w.id === liability.walletId);
+    if (!wallet || wallet.balance < paymentAmount) {
+        Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
+        return;
+    }
+
+    // Deduct from wallet
+    wallet.balance -= paymentAmount;
+    DB.saveWallets(DB.getWallets().map(w => w.id === wallet.id ? wallet : w));
+
+    // Record payment
+    const payments = DB.getLiabilityPayments();
+    payments.push({
+        id: Utils.generateId(),
+        liabilityId,
+        amount: paymentAmount,
+        date: paymentDate,
+        notes: paymentNotes,
+        createdAt: new Date().toISOString()
+    });
+
+    if (DB.saveLiabilityPayments(payments)) {
+        Utils.closeModal('payLiabilityModal');
+        
+        // Record as expense transaction
+        const transactions = DB.getTransactions();
+        const category = this.getOrCreateLiabilityCategory();
+        
+        transactions.push({
+            id: Utils.generateId(),
+            type: 'expense',
+            amount: paymentAmount,
+            walletId: liability.walletId,
+            categoryId: category,
+            date: paymentDate,
+            notes: `Pembayaran liabilitas: ${liability.name}` + (paymentNotes ? ` - ${paymentNotes}` : ''),
+            createdAt: new Date().toISOString()
+        });
+        DB.saveTransactions(transactions);
+
+        this.renderLiabilitiesList();
+        this.renderLiabilitiesSummary();
+        this.renderPaymentSchedule();
+        this.renderPaymentHistory();
+        this.renderWalletsList();
+        this.updateTotalBalance();
+        Utils.showToast('Pembayaran berhasil!', 'success');
+    }
+}
+
+showLiabilityDetail(liabilityId) {
+    const liability = DB.getLiabilities().find(l => l.id === liabilityId);
+    if (!liability) return;
+
+    const payments = DB.getLiabilityPayments()
+        .filter(p => p.liabilityId === liabilityId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const paidAmount = this.calculatePaidAmount(liabilityId);
+    const remaining = liability.amount - paidAmount;
+    const progressPercent = (paidAmount / liability.amount) * 100;
+
+    const paymentsHTML = payments.length === 0 ? 
+        '<p style="text-align: center; color: #666;">Belum ada pembayaran</p>' :
+        payments.map(payment => `
+            <div class="payment-item">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>${Utils.formatDate(payment.date)}</span>
+                    <span style="color: var(--success-color);">-${Utils.formatCurrency(payment.amount)}</span>
+                </div>
+                ${payment.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">${payment.notes}</p>` : ''}
+            </div>
+        `).join('');
+
+    const content = `
+        <div style="margin-bottom: 20px;">
+            <h4>${liability.name}</h4>
+            <p><strong>Jenis:</strong> ${this.getLiabilityTypeName(liability.type)}</p>
+            <p><strong>Total Hutang:</strong> ${Utils.formatCurrency(liability.amount)}</p>
+            <p><strong>Suku Bunga:</strong> ${liability.interestRate}% per tahun</p>
+            <p><strong>Jatuh Tempo:</strong> ${Utils.formatDate(liability.dueDate)}</p>
+            <p><strong>Terbayar:</strong> <span style="color: var(--success-color);">${Utils.formatCurrency(paidAmount)}</span></p>
+            <p><strong>Sisa:</strong> <span style="color: var(--warning-color);">${Utils.formatCurrency(remaining)}</span></p>
+            
+            <div class="debt-progress">
+                <div class="debt-progress-bar" style="width: ${progressPercent}%"></div>
+            </div>
+        </div>
+
+        <h5>Riwayat Pembayaran</h5>
+        <div style="max-height: 300px; overflow-y: auto;">
+            ${paymentsHTML}
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button class="btn btn-success" onclick="app.showPayLiabilityModal('${liability.id}')" style="flex: 1;">
+                💸 Bayar
+            </button>
+            <button class="btn btn-danger" onclick="app.deleteLiability('${liability.id}')" style="flex: 1;">
+                🗑️ Hapus
+            </button>
+        </div>
+    `;
+
+    Utils.createModal('liabilityDetailModal', 'Detail Liabilitas', content);
+    Utils.openModal('liabilityDetailModal');
+}
+
+getLiabilityTypeName(type) {
+    const types = {
+        'credit-card': 'Kartu Kredit',
+        'loan': 'Pinjaman Bank',
+        'mortgage': 'KPR',
+        'personal': 'Pinjaman Pribadi',
+        'other': 'Lainnya'
+    };
+    return types[type] || type;
+}
+
+deleteLiability(liabilityId) {
+    if (confirm('Hapus liabilitas ini? Riwayat pembayaran juga akan dihapus.')) {
+        let liabilities = DB.getLiabilities().filter(l => l.id !== liabilityId);
+        let payments = DB.getLiabilityPayments().filter(p => p.liabilityId !== liabilityId);
+        
+        if (DB.saveLiabilities(liabilities) && DB.saveLiabilityPayments(payments)) {
+            Utils.closeModal('liabilityDetailModal');
+            this.renderLiabilitiesList();
+            this.renderLiabilitiesSummary();
+            this.renderPaymentSchedule();
+            this.renderPaymentHistory();
+            Utils.showToast('Liabilitas berhasil dihapus!', 'success');
+        }
+    }
+}
+
+getOrCreateLiabilityCategory() {
+    const categories = DB.getCategories();
+    let liabilityCategory = categories.find(c => c.name === 'Pembayaran Hutang' && c.type === 'expense');
+    
+    if (!liabilityCategory) {
+        liabilityCategory = {
+            id: Utils.generateId(),
+            name: 'Pembayaran Hutang',
+            type: 'expense',
+            emoji: '🏦'
+        };
+        categories.push(liabilityCategory);
+        DB.saveCategories(categories);
+    }
+    
+    return liabilityCategory.id;
+}
 }
 
 // Initialize app
