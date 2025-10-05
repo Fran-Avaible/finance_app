@@ -95,30 +95,168 @@ const DB = {
         return this.getCategories().find(c => c.id === categoryId);
     },
 
+// GANTI method backupData dengan yang INI:
+// Pastikan backupData() mencakup data baru
 backupData() {
     try {
         const data = {
+            // Data utama
             wallets: this.getWallets(),
             categories: this.getCategories(),
             transactions: this.getTransactions(),
             budgets: this.getBudgets(),
+            
+            // Data emas
+            goldWallets: this.getGoldWallets(),
+            goldTransactions: this.getGoldTransactions(),
+            currentGoldPrice: this.getGoldPrice(),
+            
+            // Data liabilitas
+            liabilities: this.getLiabilities(),
+            liabilityPayments: this.getLiabilityPayments(),
+            
+            // === TAMBAHKAN DATA BARU ===
+            savingsGoals: this.getSavingsGoals(),
+            savingsTransactions: this.getSavingsTransactions(),
+            billReminders: this.getBillReminders(),
+            // ===========================
+            theme: Utils.getTheme(),
+            
+            // Metadata
             exportedAt: new Date().toISOString(),
-            type: 'backup'
+            version: '3.0',
+            type: 'complete-backup',
+            dataCount: {
+                wallets: this.getWallets().length,
+                transactions: this.getTransactions().length,
+                budgets: this.getBudgets().length,
+                goldWallets: this.getGoldWallets().length,
+                goldTransactions: this.getGoldTransactions().length,
+                liabilities: this.getLiabilities().length,
+                liabilityPayments: this.getLiabilityPayments().length,
+                savingsGoals: this.getSavingsGoals().length,
+                billReminders: this.getBillReminders().length
+            }
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `finance_complete_backup_${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
         
-        Utils.showToast('Backup JSON berhasil diunduh!', 'success');
+        console.log('💾 Complete backup created:', data.dataCount);
+        Utils.showToast('Backup LENGKAP berhasil diunduh!', 'success');
         return true;
     } catch (e) {
         console.error('Backup error:', e);
-        Utils.showToast('Gagal membuat backup', 'error');
+        Utils.showToast('Gagal membuat backup lengkap', 'error');
+        return false;
+    }
+},
+
+// Pastikan restoreData() mencakup data baru
+restoreData(jsonData) {
+    try {
+        const data = JSON.parse(jsonData);
+        
+        // Validasi basic structure
+        if (!data.wallets || !data.categories || !data.transactions) {
+            throw new Error('Format backup tidak valid');
+        }
+
+        console.log('🔄 Restoring data:', data.dataCount || 'Unknown version');
+
+        // Restore data utama
+        this.saveWallets(data.wallets);
+        this.saveCategories(data.categories);
+        this.saveTransactions(data.transactions);
+        this.saveBudgets(data.budgets || []);
+
+        // Restore data emas
+        if (data.goldWallets) this.saveGoldWallets(data.goldWallets);
+        if (data.goldTransactions) this.saveGoldTransactions(data.goldTransactions);
+        if (data.currentGoldPrice) this.saveGoldPrice(data.currentGoldPrice);
+
+        // Restore data liabilitas
+        if (data.liabilities) this.saveLiabilities(data.liabilities);
+        if (data.liabilityPayments) this.saveLiabilityPayments(data.liabilityPayments);
+
+        // === RESTORE DATA BARU ===
+        if (data.savingsGoals) this.saveSavingsGoals(data.savingsGoals);
+        if (data.savingsTransactions) this.saveSavingsTransactions(data.savingsTransactions);
+        if (data.billReminders) this.saveBillReminders(data.billReminders);
+        // =========================
+        if (data.theme) {Utils.setTheme(data.theme); }
+
+        console.log('🎉 Complete restore successful!');
+        return true;
+        
+    } catch (e) {
+        console.error('Restore error:', e);
+        Utils.showToast('Gagal memulihkan data! File mungkin rusak.', 'error');
+        return false;
+    }
+},
+
+// PERBAIKI method restoreData:
+restoreData(jsonData) {
+    try {
+        const data = JSON.parse(jsonData);
+        
+        // Validasi basic structure
+        if (!data.wallets || !data.categories || !data.transactions) {
+            throw new Error('Format backup tidak valid');
+        }
+
+        console.log('🔄 Restoring data:', data.dataCount || 'Unknown version');
+
+        // Restore data utama
+        this.saveWallets(data.wallets);
+        this.saveCategories(data.categories);
+        this.saveTransactions(data.transactions);
+        this.saveBudgets(data.budgets || []);
+
+        // === RESTORE DATA BARU ===
+        // Restore data emas
+        if (data.goldWallets) {
+            this.saveGoldWallets(data.goldWallets);
+            console.log('✅ Restored gold wallets:', data.goldWallets.length);
+        }
+        
+        if (data.goldTransactions) {
+            this.saveGoldTransactions(data.goldTransactions);
+            console.log('✅ Restored gold transactions:', data.goldTransactions.length);
+        }
+        
+        if (data.currentGoldPrice) {
+            this.saveGoldPrice(data.currentGoldPrice);
+            console.log('✅ Restored gold price');
+        }
+
+        // Restore data liabilitas
+        if (data.liabilities) {
+            this.saveLiabilities(data.liabilities);
+            console.log('✅ Restored liabilities:', data.liabilities.length);
+        }
+        
+        if (data.liabilityPayments) {
+            this.saveLiabilityPayments(data.liabilityPayments);
+            console.log('✅ Restored liability payments:', data.liabilityPayments.length);
+        }
+
+        // Restore data tambahan jika ada
+        if (data.savingsGoals) this.saveSavingsGoals(data.savingsGoals);
+        if (data.billReminders) this.saveBillReminders(data.billReminders);
+
+        console.log('🎉 Complete restore successful!');
+        return true;
+        
+    } catch (e) {
+        console.error('Restore error:', e);
+        Utils.showToast('Gagal memulihkan data! File mungkin rusak.', 'error');
         return false;
     }
 },
@@ -148,6 +286,81 @@ backupData() {
             localStorage.setItem('lastBackup', today);
         }
     },
+
+// Tambahkan methods untuk savings goals
+getSavingsGoals() {
+    return JSON.parse(localStorage.getItem('savingsGoals') || '[]');
+},
+
+saveSavingsGoals(goals) {
+    try {
+        localStorage.setItem('savingsGoals', JSON.stringify(goals));
+        return true;
+    } catch (e) {
+        console.error('Gagal menyimpan savings goals:', e);
+        return false;
+    }
+},
+
+getSavingsTransactions() {
+    return JSON.parse(localStorage.getItem('savingsTransactions') || '[]');
+},
+
+saveSavingsTransactions(transactions) {
+    try {
+        localStorage.setItem('savingsTransactions', JSON.stringify(transactions));
+        return true;
+    } catch (e) {
+        console.error('Gagal menyimpan savings transactions:', e);
+        return false;
+    }
+},
+
+// Tambahkan methods untuk bill reminders
+getBillReminders() {
+    return JSON.parse(localStorage.getItem('billReminders') || '[]');
+},
+
+saveBillReminders(reminders) {
+    try {
+        localStorage.setItem('billReminders', JSON.stringify(reminders));
+        return true;
+    } catch (e) {
+        console.error('Gagal menyimpan bill reminders:', e);
+        return false;
+    }
+},
+    // Tambahkan di DB object
+
+getLiabilities() {
+    return JSON.parse(localStorage.getItem('liabilities') || '[]');
+},
+
+saveLiabilities(liabilities) {
+    try {
+        localStorage.setItem('liabilities', JSON.stringify(liabilities));
+        return true;
+    } catch (e) {
+        console.error('Gagal menyimpan liabilities:', e);
+        return false;
+    }
+},
+
+getLiabilityPayments() {
+    return JSON.parse(localStorage.getItem('liabilityPayments') || '[]');
+},
+
+saveLiabilityPayments(payments) {
+    try {
+        localStorage.setItem('liabilityPayments', JSON.stringify(payments));
+        return true;
+    } catch (e) {
+        console.error('Gagal menyimpan liability payments:', e);
+        return false;
+    }
+},
+
+// ===== GOLD FEATURE IN DATABASE.JS =====
 
 // Tambahkan di DB object
 getGoldWallets() {
@@ -179,16 +392,25 @@ saveGoldTransactions(transactions) {
 },
 
 getGoldPrice() {
-    const saved = JSON.parse(localStorage.getItem('currentGoldPrice') || '{"buy": 1000000, "sell": 980000, "lastUpdate": ""}');
-    return saved;
+    const saved = localStorage.getItem('currentGoldPrice');
+    if (!saved) {
+        // Return default price jika belum ada
+        return { buy: 1000000, sell: 980000, lastUpdate: '', source: 'Default' };
+    }
+    return JSON.parse(saved);
 },
 
 saveGoldPrice(price) {
     try {
-        localStorage.setItem('currentGoldPrice', JSON.stringify({
-            ...price,
-            lastUpdate: new Date().toISOString()
-        }));
+        const completePrice = {
+            buy: price.buy,
+            sell: price.sell,
+            lastUpdate: new Date().toISOString(),
+            source: price.source || 'Manual Input'
+        };
+        
+        localStorage.setItem('currentGoldPrice', JSON.stringify(completePrice));
+        console.log('💾 Gold price saved:', completePrice);
         return true;
     } catch (e) {
         console.error('Gagal menyimpan gold price:', e);
@@ -196,10 +418,60 @@ saveGoldPrice(price) {
     }
 },
 
-// Initialize gold data
+// Method untuk fetch harga emas yang sudah diperbaiki
+async fetchPegadaianGoldPrice() {
+    try {
+        console.log('🔄 Fetching gold price from Pegadaian...');
+        
+        // Simulasi fetching harga dengan variasi realistis
+        const priceData = await this.simulateGoldPriceFetch();
+        if (priceData && priceData.buy > 0) {
+            console.log('✅ Gold price fetched:', priceData);
+            return priceData;
+        }
+        
+        // Fallback ke harga default
+        return this.getDefaultGoldPrice();
+        
+    } catch (error) {
+        console.error('❌ Gold price fetch failed:', error);
+        return this.getDefaultGoldPrice();
+    }
+},
+
+// Simulasi fetch harga emas yang lebih realistis
+simulateGoldPriceFetch() {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            // Harga dasar dengan variasi acak yang realistis
+            const basePrice = 1200000; // Harga dasar per gram
+            const randomVariation = Math.random() * 50000 - 25000; // ±25k variation
+            const currentBuy = Math.round(basePrice + randomVariation);
+            const currentSell = Math.round(currentBuy * 0.96); // Spread 4%
+            
+            resolve({
+                buy: currentBuy,
+                sell: currentSell,
+                lastUpdate: new Date().toISOString(),
+                source: 'Pegadaian (Simulated)'
+            });
+        }, 2000); // Simulasi delay network
+    });
+},
+
+getDefaultGoldPrice() {
+    return {
+        buy: 1200000,
+        sell: 1150000,
+        lastUpdate: new Date().toISOString(),
+        source: 'Default'
+    };
+},
+
+// Initialize gold data - PASTIKAN DIPANGGIL DI INIT()
 init() {
     // ... existing init code ...
-    
+
     // Initialize gold data
     if (!localStorage.getItem('goldWallets')) {
         const defaultGoldWallets = [
@@ -223,95 +495,9 @@ init() {
     if (!localStorage.getItem('currentGoldPrice')) {
         this.saveGoldPrice({
             buy: 1000000,
-            sell: 980000
+            sell: 980000,
+            source: 'Initial'
         });
     }
 },
-
-// Tambahkan method untuk fetch harga Pegadaian
-async fetchPegadaianGoldPrice() {
-    try {
-        // Coba method utama (API)
-        let priceData = await this.tryPegadaianAPI();
-        if (priceData) return priceData;
-        
-        // Jika gagal, coba method alternatif (HTML scraping)
-        priceData = await this.fetchPegadaianGoldPriceAlternative();
-        if (priceData) return priceData;
-        
-        // Jika semua gagal, return harga default
-        return this.getDefaultGoldPrice();
-        
-    } catch (error) {
-        console.error('All Pegadaian methods failed:', error);
-        return this.getDefaultGoldPrice();
-    }
-},
-
-async tryPegadaianAPI() {
-    try {
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const targetUrl = 'https://www.pegadaian.co.id/api/gold';
-        
-        const response = await fetch(proxyUrl + targetUrl, {
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            // Process data sesuai struktur Pegadaian API
-            // ... (sama seperti sebelumnya)
-            return processedData;
-        }
-    } catch (error) {
-        console.error('Pegadaian API failed:', error);
-        return null;
-    }
-},
-
-getDefaultGoldPrice() {
-    // Harga default berdasarkan rata-rata market
-    return {
-        buy: 1250000,
-        sell: 1200000,
-        lastUpdate: new Date().toISOString(),
-        source: 'Default Market Price'
-    };
-},
-
-// Alternatif scraping method
-async fetchPegadaianGoldPriceAlternative() {
-    try {
-        // Method alternatif: coba scraping dari halaman HTML
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const targetUrl = 'https://www.pegadaian.co.id/gold';
-        
-        const response = await fetch(proxyUrl + targetUrl);
-        const html = await response.text();
-        
-        // Parse HTML untuk mencari harga emas
-        // Ini adalah contoh - struktur HTML Pegadaian bisa berubah
-        const buyMatch = html.match(/harga beli.*?([\d.,]+)/i);
-        const sellMatch = html.match(/harga jual.*?([\d.,]+)/i);
-        
-        if (buyMatch && sellMatch) {
-            const buyPrice = parseFloat(buyMatch[1].replace(/\./g, ''));
-            const sellPrice = parseFloat(sellMatch[1].replace(/\./g, ''));
-            
-            return {
-                buy: buyPrice,
-                sell: sellPrice,
-                lastUpdate: new Date().toISOString(),
-                source: 'Pegadaian (HTML)'
-            };
-        }
-    } catch (error) {
-        console.error('Alternative scraping failed:', error);
-    }
-    
-    return null;
-}
 };
