@@ -11,6 +11,7 @@ import { CalendarModule } from './modules/calendar.js';
 import { SettingsModule } from './modules/settings.js';
 import { GoldModule } from './modules/gold.js';
 import { LiabilitiesModule } from './modules/liabilities.js';
+// import { ExchangeModule } from './modules/exchange.js'; // Asumsi ini ditambahkan nanti
 
 // ===== MAIN APP =====
 class FinanceApp {
@@ -36,6 +37,7 @@ class FinanceApp {
         this.settingsModule = new SettingsModule(this);
         this.goldModule = new GoldModule(this);
         this.liabilitiesModule = new LiabilitiesModule(this);
+        // this.exchangeModule = new ExchangeModule(this); // Inisialisasi modul Kurs jika sudah dibuat
 
         this.init();
     }
@@ -44,7 +46,8 @@ class FinanceApp {
         DB.init();
         this.setupEventListeners();
         Utils.initTheme();
-        this.loadQuickNote(); // Muat catatan saat app dimulai
+        this.loadQuickNote();
+        this.renderNewsTicker(); // NEW CALL: Render News
         this.render();
         this.updateTotalBalance();
     }
@@ -66,6 +69,24 @@ class FinanceApp {
         if (saveBtn) {
             saveBtn.addEventListener('click', () => this.saveQuickNote());
         }
+    }
+    
+    renderNewsTicker() { // UPDATED METHOD
+        const container = document.getElementById('newsTickerContainer');
+        if (!container) return;
+        
+        const newsContent = [
+            '⚠️ PERINGATAN: Kami bersiap migrasi besar ke V3.9.0 untuk stabilitas dan fitur baru! Harap Backup Data Anda.',
+            '📞 Kontak WA: 082181238808 (Hanya Chat)',
+            '📧 Feedback & Saran: afrandsyahromi08@gmail.com',
+            '✨ Terima kasih telah menggunakan Super App ini!'
+        ];
+
+        container.innerHTML = `
+            <div class="news-ticker-content">
+                ${newsContent.join(' | ')} | 
+            </div>
+        `;
     }
 
     switchTab(tabName) {
@@ -114,21 +135,24 @@ class FinanceApp {
             case 'gold':
                 this.goldModule.render(tabContent);
                 break;
-            case 'saham':
-                tabContent.innerHTML = '<div class="card"><p>Tab Saham sedang dalam pengembangan</p></div>';
-                break;
             case 'liabilities':
                 this.liabilitiesModule.render(tabContent);
                 break;
-            case 'Personalisasi':
+                
+            // Placeholder cases (Pastikan penamaan di index.html konsisten, huruf kecil tanpa spasi)
+            case 'Personalisasi': 
                 tabContent.innerHTML = '<div class="card"><p>Tab Personalisasi sedang dalam pengembangan</p></div>';
-                break; 
-           case 'Net Worth':
+                break;
+            case 'Net Worth':
                 tabContent.innerHTML = '<div class="card"><p>Tab Net Worth sedang dalam pengembangan</p></div>';
                 break;
-           case 'Kurs':
+            case 'Kurs':
                 tabContent.innerHTML = '<div class="card"><p>Tab Kurs sedang dalam pengembangan</p></div>';
                 break;
+            case 'saham':
+                tabContent.innerHTML = '<div class="card"><p>Tab Saham sedang dalam pengembangan</p></div>';
+                break;
+                
             default:
                 tabContent.innerHTML = '<div class="card"><p>Tab sedang dalam pengembangan</p></div>';
         }
@@ -751,11 +775,11 @@ class FinanceApp {
             
             <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" 
                     onclick="window.app.downloadCompleteBackup()">
-                💾 Download Backup 
+                💾 Download Backup LENGKAP
             </button>
             
             <label class="btn btn-outline" style="width: 100%; display: block; text-align: center; margin-bottom: 10px;">
-                📁 Restore Backup 
+                📁 Restore Backup LENGKAP
                 <input type="file" id="restoreFile" accept=".json" style="display: none;" 
                     onchange="window.app.settingsModule.restoreCompleteBackup(event)">
             </label>
