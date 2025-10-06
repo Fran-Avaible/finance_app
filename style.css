@@ -364,6 +364,7 @@ body {
 .progress-bar {
     height: 100%;
     border-radius: 5px;
+    background: var(--success-color);
     transition: width 0.3s ease;
 }
 
@@ -646,7 +647,7 @@ body {
     --input-border: #555;
 }
 
-/* ===== DARK MODE STYLES ===== */
+/* ===== DARK MODE STYLES (REVISI) ===== */
 [data-theme="dark"] body {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: var(--text-color);
@@ -709,35 +710,67 @@ body {
 [data-theme="dark"] .liability-item,
 [data-theme="dark"] .payment-schedule-item {
     background: var(--card-bg);
-    border-left-color: var(--primary-color);
+    /* Pertahankan border-left-color yang spesifik untuk item ini */
 }
 
-[data-theme="dark"] .empty-state {
-    color: var(--text-color);
+/* Perbaikan Warna Teks & Background Sekunder pada Card */
+[data-theme="dark"] .card-title,
+[data-theme="dark"] .form-label,
+[data-theme="dark"] .day-number,
+[data-theme="dark"] .calendar-day-header {
+    /* Menggunakan dark-color (yang di mode gelap adalah warna terang) */
+    color: var(--dark-color) !important; 
+}
+
+[data-theme="dark"] .transaction-wallet,
+[data-theme="dark"] .transaction-notes,
+[data-theme="dark"] .empty-state,
+[data-theme="dark"] .progress-text,
+[data-theme="dark"] .stat-label {
+    /* Teks abu-abu sekunder (perlu warna yang lebih terang di dark mode) */
+    color: #b0b0b0 !important; 
 }
 
 [data-theme="dark"] .progress-bar-container {
     background: var(--border-color);
 }
 
+/* ===== PERBAIKAN SPESIFIK KALENDER (Setelah Revisi) ===== */
+
 [data-theme="dark"] .calendar-grid {
-    background: var(--card-bg);
+    background: var(--card-bg); /* Latar belakang grid kalender */
+    box-shadow: none;
+}
+
+[data-theme="dark"] .calendar-day-header {
+    background: var(--input-bg); /* Header hari (Min, Sen, dst) */
+    border: 1px solid var(--border-color);
 }
 
 [data-theme="dark"] .calendar-day {
-    background: var(--input-bg);
+    background: var(--input-bg); /* Latar belakang kotak hari */
     border-color: var(--border-color);
-    color: var(--text-color);
+}
+
+[data-theme="dark"] .calendar-day:hover {
+    /* Efek hover yang lebih jelas dengan warna primary dark mode */
+    background-color: rgba(124, 147, 251, 0.2); 
+    transform: none; /* Menghilangkan scaling saat hover, agar lebih halus */
 }
 
 [data-theme="dark"] .calendar-day.empty {
-    background: var(--bg-color);
+    background-color: var(--card-bg) !important; /* Hari kosong menyatu dengan grid */
+    cursor: default;
 }
 
 [data-theme="dark"] .calendar-day.today {
-    background: rgba(102, 126, 234, 0.3);
-    border-color: var(--primary-color);
+    /* Hari Ini */
+    background: rgba(124, 147, 251, 0.3); /* primary-color dengan opacity */
+    border: 2px solid var(--primary-color);
 }
+
+/* ===== END PERBAIKAN KALENDER ===== */
+
 
 /* Dark mode toggle button */
 .theme-toggle {
@@ -770,4 +803,91 @@ body {
 
 [data-theme="dark"] .theme-toggle .icon {
     transform: rotate(180deg);
+}
+
+/* MultipleFiles/style.css */
+
+/* ... (di bawah bagian Dark mode toggle button) ... */
+
+/* ===== QUICK NOTE STYLES ===== */
+
+/* Container untuk menampung theme toggle dan note toggle agar berdekatan */
+.theme-toggle,
+.note-toggle {
+    position: fixed;
+    z-index: 1000;
+    /* Styles lainnya sama seperti theme-toggle */
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle {
+    top: 20px;
+    right: 20px;
+}
+
+.note-toggle {
+    top: 80px; /* Di bawah theme toggle */
+    right: 20px;
+}
+
+.quick-note-popup {
+    position: fixed;
+    top: 20px;
+    right: 80px; /* Geser ke kiri tombol toggle */
+    width: 300px;
+    height: 350px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 999;
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+}
+
+.quick-note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.quick-note-header h4 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--dark-color);
+}
+
+.quick-note-popup textarea {
+    flex-grow: 1;
+    width: 100%;
+    border: none;
+    resize: none;
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+    font-size: 14px;
+    line-height: 1.5;
+    background: transparent; /* Agar sesuai dengan card background */
+    color: var(--text-color);
+}
+
+.quick-note-popup textarea:focus {
+    outline: none;
+}
+
+/* Dark mode adjustment for notes */
+[data-theme="dark"] .quick-note-header h4 {
+    color: var(--dark-color);
 }
