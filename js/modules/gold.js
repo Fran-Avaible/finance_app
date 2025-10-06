@@ -34,6 +34,9 @@ export class GoldModule {
                 <button class="btn btn-outline" onclick="window.app.goldModule.showAddGoldWalletModal()">
                     <span>🏦</span> Dompet Emas
                 </button>
+                <button class="btn btn-warning" onclick="window.app.goldModule.showManualGoldInputModal()">
+                    <span>✨</span> Input Emas Awal
+                </button>
             </div>
 
             <div class="card">
@@ -204,6 +207,88 @@ export class GoldModule {
         Utils.showToast('Harga emas berhasil disimpan!', 'success');
     }
 
+    // --- FITUR BARU: INPUT EMAS AWAL ---
+    showManualGoldInputModal() {
+        const goldWallets = DB.getGoldWallets();
+        
+        if (goldWallets.length === 0) {
+            Utils.showToast('Buat dompet emas terlebih dahulu!', 'error');
+            this.showAddGoldWalletModal();
+            return;
+        }
+
+        const goldOptions = goldWallets.map(w => 
+            `<option value="${w.id}">${w.emoji} ${w.name} (${w.weight.toFixed(3)}g)</option>`
+        ).join('');
+
+        const modalId = 'manualGoldInputModal';
+        const content = `
+            <form id="manualGoldInputForm">
+                <p style="margin-bottom: 15px;">
+                    Masukkan total berat emas yang sudah Anda miliki untuk dompet ini.
+                    Ini akan menimpa saldo emas saat ini dan menetapkan harga beli rata-rata.
+                </p>
+                
+                <div class="form-group">
+                    <label class="form-label">Ke Dompet Emas</label>
+                    <select class="form-control" id="inputToWallet" required>
+                        ${goldOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Total Berat Emas (gram)</label>
+                    <input type="number" class="form-control" id="inputTotalGram" 
+                           placeholder="Contoh: 10.5" step="0.001" required min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Total Harga Pembelian (IDR)</label>
+                    <input type="number" class="form-control" id="inputTotalAmount" 
+                           placeholder="Total Rupiah yang sudah diinvestasikan" required min="1">
+                </div>
+                
+                <button type="submit" class="btn btn-warning" style="width: 100%;">💾 Set Saldo Emas</button>
+            </form>
+        `;
+
+        Utils.createModal(modalId, '✨ Input Emas Awal', content);
+        Utils.openModal(modalId);
+
+        document.getElementById('manualGoldInputForm').onsubmit = (e) => {
+            e.preventDefault();
+            this.processManualGoldInput();
+        };
+    }
+
+    processManualGoldInput() {
+        const toWalletId = document.getElementById('inputToWallet').value;
+        const totalGram = parseFloat(document.getElementById('inputTotalGram').value);
+        const totalAmount = parseFloat(document.getElementById('inputTotalAmount').value);
+
+        if (totalGram <= 0 || totalAmount <= 0) {
+            Utils.showToast('Berat dan Nominal harus lebih dari 0!', 'error');
+            return;
+        }
+
+        const avgPrice = totalAmount / totalGram;
+        
+        const goldWallets = DB.getGoldWallets();
+        const goldWalletIndex = goldWallets.findIndex(w => w.id === toWalletId);
+        
+        if (goldWalletIndex === -1) return;
+
+        // Update Wallet Balance
+        goldWallets[goldWalletIndex].weight = totalGram;
+        goldWallets[goldWalletIndex].buyPrice = avgPrice; 
+
+        if (DB.saveGoldWallets(goldWallets)) {
+            Utils.closeModal('manualGoldInputModal');
+            this.renderGoldPortfolio();
+            this.renderGoldSummary();
+            Utils.showToast(`Saldo emas disetel ke ${totalGram.toFixed(3)} gram dengan rata-rata harga ${Utils.formatCurrency(avgPrice)}/g.`, 'success');
+        }
+    }
+    // --- END FITUR BARU ---
+    
     renderGoldPortfolio() {
         const container = document.getElementById('goldPortfolio');
         const wallets = DB.getGoldWallets();
@@ -347,7 +432,7 @@ export class GoldModule {
         
         if (cashWallets.length === 0) {
             Utils.showToast('Tidak ada dompet uang dengan saldo!', 'error');
-            this.app.showAddWalletModal(); // Panggil dari app global
+            this.app.showAddWalletModal(); 
             return;
         }
         
