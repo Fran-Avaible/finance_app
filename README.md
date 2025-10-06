@@ -4,6 +4,8 @@ Manage Balance
 🤖 FINANCE MANAGER SUPER APP v2.1.0
 Aplikasi Manajemen Keuangan Pribadi Single-Page Application (SPA) berbasis Vanilla JavaScript dan HTML5. Dirancang untuk memberikan kontrol penuh atas keuangan pengguna dengan penyimpanan data lokal (LocalStorage).
 
+2.1.1 * penambahan fitur input emas awal *
+
 🚀 Fitur Utama
 Aplikasi ini beroperasi sepenuhnya secara offline (data disimpan di browser Anda) dan menawarkan serangkaian alat keuangan yang komprehensif:
 
