@@ -66,6 +66,34 @@ body {
     backdrop-filter: blur(10px);
 }
 
+/* ===== NEWS TICKER STYLES (NEW) ===== */
+.news-ticker-container {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 5px 10px;
+    margin-top: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 30px;
+    color: white;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.news-ticker-content {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee 15s linear infinite; /* Animasi berjalan */
+    padding-left: 100%; /* Memulai teks dari luar layar */
+}
+
+@keyframes marquee {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-100%, 0); }
+}
+/* ===== END NEWS TICKER STYLES ===== */
+
+
 /* Tabs */
 .tab-navigation {
     display: grid;
@@ -212,7 +240,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1000;
+    z-index: 2000; /* PERBAIKAN Z-INDEX (Dinaikkan dari 1000) */
     padding: var(--spacing-md);
 }
 
@@ -245,6 +273,7 @@ body {
     font-size: 24px;
     cursor: pointer;
     color: #999;
+    z-index: 2001; /* Pastikan tombol close berada di atas konten modal dan floating actions */
 }
 
 /* Wallets */
@@ -805,10 +834,6 @@ body {
     transform: rotate(180deg);
 }
 
-/* MultipleFiles/style.css */
-
-/* ... (di bawah bagian Dark mode toggle button) ... */
-
 /* ===== QUICK NOTE STYLES ===== */
 
 /* Container untuk menampung theme toggle dan note toggle agar berdekatan */
@@ -890,4 +915,10 @@ body {
 /* Dark mode adjustment for notes */
 [data-theme="dark"] .quick-note-header h4 {
     color: var(--dark-color);
+}
+
+/* Dark mode adjustment for news ticker */
+[data-theme="dark"] .news-ticker-container {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
 }
