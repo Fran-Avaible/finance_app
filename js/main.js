@@ -120,7 +120,15 @@ class FinanceApp {
             case 'liabilities':
                 this.liabilitiesModule.render(tabContent);
                 break;
-                
+            case 'Personalisasi':
+                tabContent.innerHTML = '<div class="card"><p>Tab Personalisasi sedang dalam pengembangan</p></div>';
+                break; 
+           case 'Net Worth':
+                tabContent.innerHTML = '<div class="card"><p>Tab Net Worth sedang dalam pengembangan</p></div>';
+                break;
+           case 'Kurs':
+                tabContent.innerHTML = '<div class="card"><p>Tab Kurs sedang dalam pengembangan</p></div>';
+                break;
             default:
                 tabContent.innerHTML = '<div class="card"><p>Tab sedang dalam pengembangan</p></div>';
         }
