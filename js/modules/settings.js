@@ -66,7 +66,7 @@ export class SettingsModule {
                     <div style="background: var(--light-color); padding: 15px; border-radius: 10px;">
                         <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
                         <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
-                        <p><strong>Versi:</strong> 2.1.0</p>
+                        <p><strong>Versi:</strong> 2.2.1</p>
                         <p><strong>Mode:</strong> <span id="currentThemeDisplay">${Utils.getTheme() === 'dark' ? '🌙 Gelap' : '☀️ Terang'}</span></p>
                     </div>
                 </div>
@@ -354,4 +354,5 @@ export class SettingsModule {
             }
         }
     }
+
 }
