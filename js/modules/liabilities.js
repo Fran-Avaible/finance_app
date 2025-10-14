@@ -1,14 +1,14 @@
-// MultipleFiles/js/modules/liabilities.js
+// js/modules/liabilities.js (Versi Final dan Lengkap dengan async/await)
 import { DB } from '../database.js';
 import { Utils } from '../utils.js';
 
 export class LiabilitiesModule {
     constructor(app) {
         this.app = app;
-        this.liabilitiesSubTab = 'liabilities'; // Default sub-tab
+        this.liabilitiesSubTab = 'liabilities';
     }
 
-    render(container) {
+    async render(container) {
         container.innerHTML = `
             <div class="card">
                 <div class="card-header">
@@ -24,41 +24,36 @@ export class LiabilitiesModule {
                         </button>
                     </div>
                 </div>
-                <div id="liabilitiesSubContent">
-                    </div>
+                <div id="liabilitiesSubContent"></div>
             </div>
         `;
 
-        this.renderLiabilitiesSubContent();
+        await this.renderLiabilitiesSubContent();
         
-        // PASANG EVENT LISTENERS UNTUK SUB-TAB
         document.getElementById('tabLiabilities').addEventListener('click', (e) => this.switchLiabilitiesSubTab('liabilities', e));
         document.getElementById('tabBills').addEventListener('click', (e) => this.switchLiabilitiesSubTab('bills', e));
     }
 
-    switchLiabilitiesSubTab(subTab, event) {
+    async switchLiabilitiesSubTab(subTab, event) {
         this.liabilitiesSubTab = subTab;
-        
-        document.querySelectorAll('.sub-tab-navigation .btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        if (event.target) event.target.classList.add('active');
-        
-        this.renderLiabilitiesSubContent();
+        document.querySelectorAll('.sub-tab-navigation .btn').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        await this.renderLiabilitiesSubContent();
     }
 
-    renderLiabilitiesSubContent() {
+    async renderLiabilitiesSubContent() {
         const container = document.getElementById('liabilitiesSubContent');
         if (!container) return;
 
         if (this.liabilitiesSubTab === 'liabilities') {
-            this.renderLiabilitiesContent(container);
+            await this.renderLiabilitiesContent(container);
         } else {
-            this.renderBillsContent(container);
+            await this.renderBillsContent(container);
         }
     }
 
-    renderLiabilitiesContent(container) {
+    // --- RENDER CONTENT SECTION ---
+    async renderLiabilitiesContent(container) {
         container.innerHTML = `
             <div style="text-align: right; margin-bottom: 15px;">
                 <button class="btn btn-primary" id="addLiabilityBtn">+ Tambah Hutang</button>
@@ -80,60 +75,361 @@ export class LiabilitiesModule {
             </div>
         `;
         document.getElementById('addLiabilityBtn').addEventListener('click', () => this.showAddLiabilityModal());
-        this.renderLiabilitiesList();
-        this.renderLiabilitiesSummary();
-        this.renderPaymentSchedule();
+        await this.renderLiabilitiesList();
+        await this.renderLiabilitiesSummary();
+        await this.renderPaymentSchedule();
     }
 
-    renderBillsContent(container) {
+    async renderBillsContent(container) {
         container.innerHTML = `
-            <div style="text-align: right; margin-bottom: 15px;">
-                <button class="btn btn-primary" id="addBillBtn">+ Tagihan Baru</button>
-            </div>
+            <div style="text-align: right; margin-bottom: 15px;"><button class="btn btn-primary" id="addBillBtn">+ Tagihan Baru</button></div>
             <div id="billRemindersList"></div>
-            
-            <div class="card" style="margin-top: 20px;">
-                <div class="card-header">
-                    <h3 class="card-title">🔔 Tagihan Mendatang</h3>
-                </div>
-                <div id="upcomingBills"></div>
-            </div>
+            <div class="card" style="margin-top: 20px;"><div class="card-header"><h3 class="card-title">🔔 Tagihan Mendatang</h3></div><div id="upcomingBills"></div></div>
         `;
         document.getElementById('addBillBtn').addEventListener('click', () => this.showAddBillModal());
-        this.renderBillReminders();
-        this.renderUpcomingBills();
+        await this.renderBillReminders();
+        await this.renderUpcomingBills();
     }
 
-    renderBillReminders() {
+    // --- BILLS SECTION ---
+
+    async renderBillReminders() {
         const container = document.getElementById('billRemindersList');
-        const bills = DB.getBillReminders();
+        if(!container) return;
+        const bills = await DB.getBillReminders();
         
         if (bills.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="emoji">📅</div>
-                    <p>Belum ada pengingat tagihan</p>
-                    <p style="font-size: 14px; color: #666;">Tambahkan tagihan rutin seperti listrik, air, atau internet!</p>
-                </div>
-            `;
+            container.innerHTML = `<div class="empty-state"><div class="emoji">📅</div><p>Belum ada pengingat tagihan.</p></div>`;
             return;
         }
 
         container.innerHTML = bills.map(bill => {
             const daysLeft = this.calculateDaysLeft(bill.dueDate);
+            let statusClass = bill.paid ? 'success' : daysLeft < 0 ? 'danger' : daysLeft <= 3 ? 'warning' : '';
+            let statusText = bill.paid ? '✅ Lunas' : daysLeft < 0 ? '⏰ Terlambat' : daysLeft === 0 ? '⚠️ Hari ini' : `${daysLeft} hari lagi`;
+            return `
+                <div class="card" style="margin-bottom: 15px; border-left: 4px solid var(--${statusClass}-color);">
+                    <div class="card-header"><h4 class="card-title">${bill.emoji} ${bill.name}</h4><span style="font-weight: bold;">${statusText}</span></div>
+                    <p><strong>${Utils.formatCurrency(bill.amount)}</strong> | Jatuh tempo: ${Utils.formatDate(bill.dueDate)}</p>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-success btn-sm mark-paid-btn" data-bill-id="${bill.id}" ${bill.paid ? 'disabled' : ''}>💸 Bayar</button>
+                        <button class="btn btn-info btn-sm edit-bill-btn" data-bill-id="${bill.id}">✏️ Edit</button>
+                        <button class="btn btn-danger btn-sm delete-bill-btn" data-bill-id="${bill.id}">🗑️ Hapus</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.querySelectorAll('.mark-paid-btn').forEach(btn => btn.addEventListener('click', (e) => this.markBillAsPaid(e.target.dataset.billId)));
+        container.querySelectorAll('.edit-bill-btn').forEach(btn => btn.addEventListener('click', (e) => this.showEditBillModal(e.target.dataset.billId)));
+        container.querySelectorAll('.delete-bill-btn').forEach(btn => btn.addEventListener('click', (e) => this.deleteBill(e.target.dataset.billId)));
+    }
+    
+    async renderUpcomingBills() {
+        const container = document.getElementById('upcomingBills');
+        if(!container) return;
+        const bills = await DB.getBillReminders();
+        const upcoming = bills.filter(bill => !bill.paid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).slice(0, 5);
+        if (upcoming.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada tagihan mendatang</p>';
+            return;
+        }
+        container.innerHTML = upcoming.map(bill => {
+            const daysLeft = this.calculateDaysLeft(bill.dueDate);
+            const statusClass = daysLeft < 0 ? 'danger' : daysLeft <= 3 ? 'warning' : '';
+            return `
+                <div class="payment-schedule-item" style="border-left-color: var(--${statusClass}-color);">
+                    <div style="display: flex; justify-content: between; align-items: center;">
+                        <span>${bill.emoji} ${bill.name}</span>
+                        <span style="color: var(--${statusClass}-color); font-weight: bold;">
+                            ${daysLeft < 0 ? 'Terlambat' : daysLeft === 0 ? 'Hari ini' : `${daysLeft} hari`}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: between; font-size: 12px; color: #666;">
+                        <span>${Utils.formatCurrency(bill.amount)}</span>
+                        <span>${Utils.formatDateShort(bill.dueDate)}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    async showAddBillModal() {
+        const wallets = await DB.getWallets();
+        const walletOptions = wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join('');
+        const content = `
+            <form id="addBillForm">
+                <div class="form-group">
+                    <label>Nama Tagihan</label>
+                    <input type="text" class="form-control" id="billName" required>
+                </div>
+                <div class="form-group">
+                    <label>Emoji</label>
+                    <input type="text" class="form-control" id="billEmoji" value="📄" required>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah</label>
+                    <input type="number" class="form-control" id="billAmount" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Jatuh Tempo</label>
+                    <input type="date" class="form-control" id="billDueDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Dompet untuk Pembayaran</label>
+                    <select class="form-control" id="billWallet" required>
+                        ${walletOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipe Tagihan</label>
+                    <select class="form-control" id="billType">
+                        <option value="electricity">⚡ Listrik</option>
+                        <option value="water">💧 Air</option>
+                        <option value="internet">🌐 Internet</option>
+                        <option value="phone">📱 Telepon</option>
+                        <option value="subscription">🔄 Langganan</option>
+                        <option value="credit-card">💳 Kartu Kredit</option>
+                        <option value="insurance">🛡️ Asuransi</option>
+                        <option value="other">📄 Lainnya</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="billRecurring"> Berulang setiap bulan?
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Catatan (Opsional)</label>
+                    <input type="text" class="form-control" id="billNotes" placeholder="Catatan tagihan">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Tambah Tagihan</button>
+            </form>
+        `;
+        Utils.createModal('addBillModal', 'Tambah Pengingat Tagihan', content);
+        Utils.openModal('addBillModal');
+        document.getElementById('addBillForm').onsubmit = (e) => {
+            e.preventDefault();
+            this.processAddBill();
+        };
+    }
+    
+    async processAddBill() {
+        const name = document.getElementById('billName').value;
+        const emoji = document.getElementById('billEmoji').value;
+        const amount = parseFloat(document.getElementById('billAmount').value);
+        const dueDate = document.getElementById('billDueDate').value;
+        const walletId = document.getElementById('billWallet').value;
+        const type = document.getElementById('billType').value;
+        const recurring = document.getElementById('billRecurring').checked;
+        const notes = document.getElementById('billNotes').value;
+
+        if (amount <= 0) {
+            return Utils.showToast('Jumlah tagihan harus lebih dari 0', 'error');
+        }
+
+        const bills = await DB.getBillReminders();
+        bills.push({ 
+            id: DB.generateId(), 
+            name, 
+            emoji, 
+            amount, 
+            dueDate, 
+            walletId, 
+            type, 
+            recurring, 
+            notes,
+            paid: false,
+            createdAt: new Date().toISOString()
+        });
+        
+        await DB.saveBillReminders(bills);
+        Utils.closeModal('addBillModal');
+        await this.renderBillsContent(document.getElementById('liabilitiesSubContent'));
+        Utils.showToast('Pengingat tagihan berhasil ditambahkan!', 'success');
+    }
+
+    async showEditBillModal(billId) {
+        const bills = await DB.getBillReminders();
+        const bill = bills.find(b => b.id === billId);
+        if (!bill) return;
+
+        const wallets = await DB.getWallets();
+        const walletOptions = wallets.map(w => `<option value="${w.id}" ${w.id === bill.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`).join('');
+
+        const content = `
+            <form id="editBillForm">
+                <div class="form-group">
+                    <label>Nama Tagihan</label>
+                    <input type="text" class="form-control" id="editBillName" value="${bill.name}" required>
+                </div>
+                <div class="form-group">
+                    <label>Emoji</label>
+                    <input type="text" class="form-control" id="editBillEmoji" value="${bill.emoji}" required>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah</label>
+                    <input type="number" class="form-control" id="editBillAmount" value="${bill.amount}" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Jatuh Tempo</label>
+                    <input type="date" class="form-control" id="editBillDueDate" value="${bill.dueDate}" required>
+                </div>
+                <div class="form-group">
+                    <label>Dompet untuk Pembayaran</label>
+                    <select class="form-control" id="editBillWallet" required>
+                        ${walletOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipe Tagihan</label>
+                    <select class="form-control" id="editBillType">
+                        <option value="electricity" ${bill.type === 'electricity' ? 'selected' : ''}>⚡ Listrik</option>
+                        <option value="water" ${bill.type === 'water' ? 'selected' : ''}>💧 Air</option>
+                        <option value="internet" ${bill.type === 'internet' ? 'selected' : ''}>🌐 Internet</option>
+                        <option value="phone" ${bill.type === 'phone' ? 'selected' : ''}>📱 Telepon</option>
+                        <option value="subscription" ${bill.type === 'subscription' ? 'selected' : ''}>🔄 Langganan</option>
+                        <option value="credit-card" ${bill.type === 'credit-card' ? 'selected' : ''}>💳 Kartu Kredit</option>
+                        <option value="insurance" ${bill.type === 'insurance' ? 'selected' : ''}>🛡️ Asuransi</option>
+                        <option value="other" ${bill.type === 'other' ? 'selected' : ''}>📄 Lainnya</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="editBillRecurring" ${bill.recurring ? 'checked' : ''}> Berulang setiap bulan?
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>Catatan (Opsional)</label>
+                    <input type="text" class="form-control" id="editBillNotes" value="${bill.notes || ''}" placeholder="Catatan tagihan">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Update Tagihan</button>
+            </form>
+        `;
+        
+        Utils.createModal('editBillModal', 'Edit Tagihan', content);
+        Utils.openModal('editBillModal');
+
+        document.getElementById('editBillForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('editBillName').value;
+            const emoji = document.getElementById('editBillEmoji').value;
+            const amount = parseFloat(document.getElementById('editBillAmount').value);
+            const dueDate = document.getElementById('editBillDueDate').value;
+            const walletId = document.getElementById('editBillWallet').value;
+            const type = document.getElementById('editBillType').value;
+            const recurring = document.getElementById('editBillRecurring').checked;
+            const notes = document.getElementById('editBillNotes').value;
+
+            const updatedBills = bills.map(b => 
+                b.id === billId ? { ...b, name, emoji, amount, dueDate, walletId, type, recurring, notes } : b
+            );
+            
+            await DB.saveBillReminders(updatedBills);
+            Utils.closeModal('editBillModal');
+            await this.renderBillsContent(document.getElementById('liabilitiesSubContent'));
+            Utils.showToast('Tagihan berhasil diperbarui!', 'success');
+        };
+    }
+
+    async markBillAsPaid(billId) {
+        const allBills = await DB.getBillReminders();
+        const bill = allBills.find(b => b.id === billId);
+        if (!bill || bill.paid) return;
+        
+        if (!confirm(`Bayar tagihan ${bill.name} sebesar ${Utils.formatCurrency(bill.amount)}?`)) return;
+
+        const [wallets, transactions] = await Promise.all([DB.getWallets(), DB.getTransactions()]);
+        const wallet = wallets.find(w => w.id === bill.walletId);
+        
+        if (!wallet || wallet.balance < bill.amount) {
+            return Utils.showToast('Saldo dompet tidak cukup!', 'error');
+        }
+
+        // Update saldo dompet
+        wallet.balance -= bill.amount;
+        
+        // Tandai tagihan sebagai lunas
+        bill.paid = true;
+        bill.paidDate = new Date().toISOString();
+        
+        // Jika tagihan berulang, buat tagihan baru untuk bulan depan
+        if (bill.recurring) {
+            const nextDueDate = new Date(bill.dueDate);
+            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+            
+            allBills.push({ 
+                ...bill, 
+                id: DB.generateId(),
+                paid: false,
+                paidDate: null,
+                dueDate: nextDueDate.toISOString().split('T')[0],
+                createdAt: new Date().toISOString()
+            });
+        }
+
+        // Buat transaksi pengeluaran
+        const categoryId = await this.getOrCreateBillCategory(bill.type);
+        transactions.push({ 
+            id: DB.generateId(), 
+            type: 'expense', 
+            amount: bill.amount, 
+            walletId: bill.walletId, 
+            categoryId: categoryId, 
+            date: new Date().toISOString().split('T')[0], 
+            notes: `Tagihan: ${bill.name}` 
+        });
+
+        await Promise.all([
+            DB.saveWallets(wallets),
+            DB.saveBillReminders(allBills),
+            DB.saveTransactions(transactions)
+        ]);
+        
+        await this.renderBillsContent(document.getElementById('liabilitiesSubContent'));
+        await this.app.updateTotalBalance();
+        await this.app.dashboardModule.render();
+        Utils.showToast('Tagihan berhasil dibayar!', 'success');
+    }
+
+    async deleteBill(billId) {
+        if (!confirm('Hapus tagihan ini?')) return;
+        let bills = await DB.getBillReminders();
+        bills = bills.filter(b => b.id !== billId);
+        await DB.saveBillReminders(bills);
+        await this.renderBillsContent(document.getElementById('liabilitiesSubContent'));
+        Utils.showToast('Tagihan berhasil dihapus!', 'success');
+    }
+
+    // --- LIABILITIES (HUTANG) SECTION ---
+
+    async renderLiabilitiesList() {
+        const container = document.getElementById('liabilitiesList');
+        if (!container) return;
+        
+        const [liabilities, payments] = await Promise.all([DB.getLiabilities(), DB.getLiabilityPayments()]);
+        
+        if (liabilities.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="emoji">😊</div><p>Tidak ada liabilitas.</p></div>`;
+            return;
+        }
+
+        container.innerHTML = liabilities.map(liability => {
+            const paidAmount = this.calculatePaidAmount(liability.id, payments);
+            const remaining = liability.amount - paidAmount;
+            const progressPercent = (paidAmount / liability.amount) * 100;
+            const daysLeft = this.calculateDaysLeft(liability.dueDate);
+            
             let statusClass = '';
             let statusText = '';
             
-            if (bill.paid) {
+            if (remaining <= 0) {
                 statusClass = 'success';
                 statusText = '✅ Lunas';
             } else if (daysLeft < 0) {
                 statusClass = 'danger';
                 statusText = '⏰ Terlambat';
-            } else if (daysLeft === 0) {
-                statusClass = 'warning';
-                statusText = '⚠️ Hari ini';
-            } else if (daysLeft <= 3) {
+            } else if (daysLeft <= 7) {
                 statusClass = 'warning';
                 statusText = `${daysLeft} hari lagi`;
             } else {
@@ -141,568 +437,68 @@ export class LiabilitiesModule {
             }
 
             return `
-                <div class="card" style="margin-bottom: 15px; border-left: 4px solid var(--${statusClass}-color);">
+                <div class="liability-item ${statusClass}" style="border-left-color: var(--${statusClass}-color);">
                     <div class="card-header">
-                        <h4 class="card-title">${bill.emoji} ${bill.name}</h4>
+                        <h4 class="card-title">${liability.emoji} ${liability.name}</h4>
                         <span style="color: var(--${statusClass}-color); font-weight: bold;">${statusText}</span>
                     </div>
-                    
-                    <div style="margin: 10px 0;">
-                        <p style="margin: 5px 0;"><strong>${Utils.formatCurrency(bill.amount)}</strong></p>
-                        <p style="margin: 5px 0; font-size: 14px; color: #666;">
-                            Jatuh tempo: ${Utils.formatDate(bill.dueDate)}
-                        </p>
-                        ${bill.notes ? `<p style="margin: 5px 0; font-size: 14px; color: #666;">${bill.notes}</p>` : ''}
+                    <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
+                        <span>Total: <strong>${Utils.formatCurrency(liability.amount)}</strong></span>
+                        <span>Tersisa: <strong style="color: var(--${statusClass}-color);">${Utils.formatCurrency(remaining)}</strong></span>
                     </div>
-                    
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-success btn-sm mark-paid-btn" data-bill-id="${bill.id}" 
-                                ${bill.paid ? 'disabled' : ''}>
-                            💸 Bayar
-                        </button>
-                        <button class="btn btn-info btn-sm edit-bill-btn" data-bill-id="${bill.id}">
-                            ✏️ Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm delete-bill-btn" data-bill-id="${bill.id}">
-                            🗑️ Hapus
-                        </button>
+                    <div class="debt-progress">
+                        <div class="debt-progress-bar" style="width: ${progressPercent}%;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 4px;">
+                        <span>Terbayar: ${Utils.formatCurrency(paidAmount)}</span>
+                        <span>Jatuh tempo: ${Utils.formatDateShort(liability.dueDate)}</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="btn btn-success btn-sm pay-liability-btn" data-liability-id="${liability.id}">💸 Bayar</button>
+                        <button class="btn btn-info btn-sm edit-liability-btn" data-liability-id="${liability.id}">✏️ Edit</button>
+                        <button class="btn btn-danger btn-sm delete-liability-btn" data-liability-id="${liability.id}">🗑️ Hapus</button>
                     </div>
                 </div>
             `;
         }).join('');
         
-        // PASANG EVENT LISTENERS UNTUK BILL ACTIONS
-        container.querySelectorAll('.mark-paid-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.markBillAsPaid(e.target.dataset.billId));
-        });
-        container.querySelectorAll('.edit-bill-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.showEditBillModal(e.target.dataset.billId));
-        });
-        container.querySelectorAll('.delete-bill-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => this.deleteBill(e.target.dataset.billId));
-        });
+        container.querySelectorAll('.pay-liability-btn').forEach(btn => btn.addEventListener('click', (e) => this.showPayLiabilityModal(e.target.dataset.liabilityId)));
+        container.querySelectorAll('.edit-liability-btn').forEach(btn => btn.addEventListener('click', (e) => this.showEditLiabilityModal(e.target.dataset.liabilityId)));
+        container.querySelectorAll('.delete-liability-btn').forEach(btn => btn.addEventListener('click', (e) => this.deleteLiability(e.target.dataset.liabilityId)));
     }
 
-    renderUpcomingBills() {
-        const container = document.getElementById('upcomingBills');
-        const bills = DB.getBillReminders()
-            .filter(bill => !bill.paid)
-            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-            .slice(0, 5);
-
-        if (bills.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada tagihan mendatang</p>';
-            return;
-        }
-
-        container.innerHTML = bills.map(bill => {
-            const daysLeft = this.calculateDaysLeft(bill.dueDate);
-            return `
-                <div class="payment-schedule-item">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${bill.emoji} ${bill.name}</strong>
-                            <p style="margin: 0; font-size: 12px; color: #666;">
-                                ${Utils.formatDate(bill.dueDate)} • ${Utils.formatCurrency(bill.amount)}
-                            </p>
-                        </div>
-                        <span style="color: ${daysLeft <= 7 ? 'var(--danger-color)' : daysLeft <= 30 ? 'var(--warning-color)' : 'var(--success-color)'};">
-                            ${daysLeft} hari
-                        </span>
-                    </div>
-                </div>
-            `;
-        }).join('');
+    calculatePaidAmount(liabilityId, allPayments) {
+        return allPayments
+            .filter(p => p.liabilityId === liabilityId)
+            .reduce((total, p) => total + p.amount, 0);
     }
-
-    showAddBillModal() {
-        const wallets = DB.getWallets();
-        const walletOptions = wallets.map(w => 
-            `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
-        ).join('');
-
-        const billTypes = [
-            { value: 'electricity', name: '⚡ Listrik (PLN)', emoji: '⚡' },
-            { value: 'water', name: '💧 Air (PDAM)', emoji: '💧' },
-            { value: 'internet', name: '🌐 Internet', emoji: '🌐' },
-            { value: 'phone', name: '📱 Pulsa & Paket Data', emoji: '📱' },
-            { value: 'subscription', name: '📺 Streaming & Subscription', emoji: '📺' },
-            { value: 'credit-card', name: '💳 Kartu Kredit', emoji: '💳' },
-            { value: 'insurance', name: '🛡️ Asuransi', emoji: '🛡️' },
-            { value: 'other', name: '📄 Lainnya', emoji: '📄' }
-        ];
-
-        const billTypeOptions = billTypes.map(type => 
-            `<option value="${type.value}" data-emoji="${type.emoji}">${type.name}</option>`
-        ).join('');
-
-        const content = `
-            <form id="addBillForm">
-                <div class="form-group">
-                    <label class="form-label">Jenis Tagihan</label>
-                    <select class="form-control" id="billType" required onchange="window.app.liabilitiesModule.onBillTypeChange()">
-                        <option value="">Pilih jenis tagihan</option>
-                        ${billTypeOptions}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Nama Tagihan</label>
-                    <input type="text" class="form-control" id="billName" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Emoji</label>
-                    <input type="text" class="form-control" id="billEmoji" value="📄" maxlength="2">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Jumlah Tagihan</label>
-                    <input type="number" class="form-control" id="billAmount" required min="1">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Tanggal Jatuh Tempo</label>
-                    <input type="date" class="form-control" id="billDueDate" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Dompet untuk Pembayaran</label>
-                    <select class="form-control" id="billWallet" required>
-                        ${walletOptions}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Berulang Setiap Bulan</label>
-                    <input type="checkbox" id="billRecurring" checked>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Catatan (opsional)</label>
-                    <textarea class="form-control" id="billNotes" rows="2" placeholder="No. pelanggan atau info tambahan..."></textarea>
-                </div>
-                
-                <button type="submit" class="btn btn-primary" style="width: 100%;">📅 Tambah Pengingat Tagihan</button>
-            </form>
-        `;
-
-        Utils.createModal('addBillModal', 'Tambah Pengingat Tagihan', content);
-        Utils.openModal('addBillModal');
-
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        nextMonth.setDate(10);
-        document.getElementById('billDueDate').value = nextMonth.toISOString().split('T')[0];
-
-        document.getElementById('addBillForm').onsubmit = (e) => {
-            e.preventDefault();
-            this.processAddBill();
-        };
-    }
-
-    onBillTypeChange() {
-        const billType = document.getElementById('billType');
-        const billName = document.getElementById('billName');
-        const billEmoji = document.getElementById('billEmoji');
-        
-        const selectedOption = billType.options[billType.selectedIndex];
-        const emoji = selectedOption.getAttribute('data-emoji');
-        
-        if (emoji) {
-            billEmoji.value = emoji;
-        }
-        
-        if (billType.value && !billName.value) {
-            billName.value = selectedOption.text;
-        }
-    }
-
-    processAddBill() {
-        const type = document.getElementById('billType').value;
-        const name = document.getElementById('billName').value;
-        const emoji = document.getElementById('billEmoji').value;
-        const amount = parseFloat(document.getElementById('billAmount').value);
-        const dueDate = document.getElementById('billDueDate').value;
-        const walletId = document.getElementById('billWallet').value;
-        const recurring = document.getElementById('billRecurring').checked;
-        const notes = document.getElementById('billNotes').value;
-
-        if (!type || !name || !amount || !dueDate || !walletId) {
-            Utils.showToast('Harap isi semua field yang wajib!', 'error');
-            return;
-        }
-
-        const bills = DB.getBillReminders();
-        bills.push({
-            id: DB.generateId(),
-            type,
-            name,
-            emoji,
-            amount,
-            dueDate,
-            walletId,
-            recurring,
-            notes,
-            paid: false,
-            createdAt: new Date().toISOString()
-        });
-
-        if (DB.saveBillReminders(bills)) {
-            Utils.closeModal('addBillModal');
-            this.renderBillReminders();
-            this.renderUpcomingBills();
-            Utils.showToast('Pengingat tagihan berhasil ditambahkan!', 'success');
-        }
-    }
-
-    markBillAsPaid(billId) {
-        const bills = DB.getBillReminders();
-        const billIndex = bills.findIndex(b => b.id === billId);
-        if (billIndex === -1) return;
-
-        const bill = bills[billIndex];
-        
-        const wallet = DB.getWallets().find(w => w.id === bill.walletId);
-        if (!wallet) {
-            Utils.showToast('Dompet tidak ditemukan!', 'error');
-            return;
-        }
-
-        if (wallet.balance < bill.amount) {
-            Utils.showToast('Saldo dompet tidak mencukupi untuk membayar tagihan!', 'error');
-            return;
-        }
-
-        if (!confirm(`Bayar tagihan ${bill.name} sebesar ${Utils.formatCurrency(bill.amount)}?`)) {
-            return;
-        }
-
-        try {
-            wallet.balance -= bill.amount;
-            DB.saveWallets(DB.getWallets().map(w => w.id === wallet.id ? wallet : w));
-
-            bills[billIndex].paid = true;
-            bills[billIndex].paidDate = new Date().toISOString();
-            DB.saveBillReminders(bills);
-
-            if (bill.recurring) {
-                const nextDueDate = new Date(bill.dueDate);
-                nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-                
-                bills.push({
-                    id: DB.generateId(),
-                    type: bill.type,
-                    name: bill.name,
-                    emoji: bill.emoji,
-                    amount: bill.amount,
-                    dueDate: nextDueDate.toISOString().split('T')[0],
-                    walletId: bill.walletId,
-                    recurring: true,
-                    notes: bill.notes,
-                    paid: false,
-                    createdAt: new Date().toISOString()
-                });
-                DB.saveBillReminders(bills);
-            }
-
-            const transactions = DB.getTransactions();
-            transactions.push({
-                id: DB.generateId(),
-                type: 'expense',
-                amount: bill.amount,
-                walletId: bill.walletId,
-                categoryId: this.getOrCreateBillCategory(bill.type),
-                date: new Date().toISOString().split('T')[0],
-                notes: `Tagihan: ${bill.name}` + (bill.notes ? ` - ${bill.notes}` : ''),
-                createdAt: new Date().toISOString()
-            });
-            DB.saveTransactions(transactions);
-
-            this.renderBillReminders();
-            this.renderUpcomingBills();
-            this.app.dashboardModule.renderWalletsList(); // Update wallets list on dashboard
-            this.app.updateTotalBalance();
-            
-            const message = bill.recurring ? 
-                `Tagihan ${bill.name} berhasil dibayar! Tagihan berikutnya sudah dibuat.` :
-                `Tagihan ${bill.name} berhasil dibayar!`;
-                
-            Utils.showToast(message, 'success');
-
-        } catch (error) {
-            console.error('Error paying bill:', error);
-            Utils.showToast('Terjadi kesalahan saat membayar tagihan', 'error');
-        }
-    }
-
-    showEditBillModal(billId) {
-        const bills = DB.getBillReminders();
-        const bill = bills.find(b => b.id === billId);
-        if (!bill) return;
-
-        const wallets = DB.getWallets();
-        const walletOptions = wallets.map(w => 
-            `<option value="${w.id}" ${w.id === bill.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`
-        ).join('');
-
-        const billTypes = [
-            { value: 'electricity', name: '⚡ Listrik (PLN)', emoji: '⚡' },
-            { value: 'water', name: '💧 Air (PDAM)', emoji: '💧' },
-            { value: 'internet', name: '🌐 Internet', emoji: '🌐' },
-            { value: 'phone', name: '📱 Pulsa & Paket Data', emoji: '📱' },
-            { value: 'subscription', name: '📺 Streaming & Subscription', emoji: '📺' },
-            { value: 'credit-card', name: '💳 Kartu Kredit', emoji: '💳' },
-            { value: 'insurance', name: '🛡️ Asuransi', emoji: '🛡️' },
-            { value: 'other', name: '📄 Lainnya', emoji: '📄' }
-        ];
-
-        const billTypeOptions = billTypes.map(type => 
-            `<option value="${type.value}" ${type.value === bill.type ? 'selected' : ''} data-emoji="${type.emoji}">${type.name}</option>`
-        ).join('');
-
-        const content = `
-            <form id="editBillForm">
-                <div class="form-group">
-                    <label class="form-label">Jenis Tagihan</label>
-                    <select class="form-control" id="editBillType" required onchange="window.app.liabilitiesModule.onEditBillTypeChange()">
-                        <option value="">Pilih jenis tagihan</option>
-                        ${billTypeOptions}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Nama Tagihan</label>
-                    <input type="text" class="form-control" id="editBillName" value="${bill.name}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Emoji</label>
-                    <input type="text" class="form-control" id="editBillEmoji" value="${bill.emoji}" maxlength="2">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Jumlah Tagihan</label>
-                    <input type="number" class="form-control" id="editBillAmount" value="${bill.amount}" required min="1">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Tanggal Jatuh Tempo</label>
-                    <input type="date" class="form-control" id="editBillDueDate" value="${bill.dueDate}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Dompet untuk Pembayaran</label>
-                    <select class="form-control" id="editBillWallet" required>
-                        ${walletOptions}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="editBillRecurring" ${bill.recurring ? 'checked' : ''}>
-                        Berulang Setiap Bulan
-                    </label>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Catatan</label>
-                    <textarea class="form-control" id="editBillNotes" rows="2">${bill.notes || ''}</textarea>
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">
-                        💾 Simpan Perubahan
-                    </button>
-                    <button type="button" class="btn btn-danger" style="flex: 1;" 
-                            id="deleteEditBillBtn" data-bill-id="${bill.id}">
-                        🗑️ Hapus
-                    </button>
-                </div>
-            </form>
-        `;
-
-        Utils.createModal('editBillModal', 'Edit Tagihan', content);
-        Utils.openModal('editBillModal');
-
-        document.getElementById('editBillForm').onsubmit = (e) => {
-            e.preventDefault();
-            this.processEditBill(billId);
-        };
-        document.getElementById('deleteEditBillBtn').addEventListener('click', () => this.deleteBill(billId));
-    }
-
-    onEditBillTypeChange() {
-        const billType = document.getElementById('editBillType');
-        const billName = document.getElementById('editBillName');
-        const billEmoji = document.getElementById('editBillEmoji');
-        
-        const selectedOption = billType.options[billType.selectedIndex];
-        const emoji = selectedOption.getAttribute('data-emoji');
-        
-        if (emoji) {
-            billEmoji.value = emoji;
-        }
-    }
-
-    processEditBill(billId) {
-        const bills = DB.getBillReminders();
-        const billIndex = bills.findIndex(b => b.id === billId);
-        if (billIndex === -1) return;
-
-        const type = document.getElementById('editBillType').value;
-        const name = document.getElementById('editBillName').value;
-        const emoji = document.getElementById('editBillEmoji').value;
-        const amount = parseFloat(document.getElementById('editBillAmount').value);
-        const dueDate = document.getElementById('editBillDueDate').value;
-        const walletId = document.getElementById('editBillWallet').value;
-        const recurring = document.getElementById('editBillRecurring').checked;
-        const notes = document.getElementById('editBillNotes').value;
-
-        if (!type || !name || !amount || !dueDate || !walletId) {
-            Utils.showToast('Harap isi semua field yang wajib!', 'error');
-            return;
-        }
-
-        bills[billIndex] = {
-            ...bills[billIndex],
-            type,
-            name,
-            emoji,
-            amount,
-            dueDate,
-            walletId,
-            recurring,
-            notes
-        };
-
-        if (DB.saveBillReminders(bills)) {
-            Utils.closeModal('editBillModal');
-            this.renderBillReminders();
-            this.renderUpcomingBills();
-            Utils.showToast('Tagihan berhasil diperbarui!', 'success');
-        }
-    }
-
-    deleteBill(billId) {
-        if (!confirm('Hapus tagihan ini?')) {
-            return;
-        }
-
-        const bills = DB.getBillReminders().filter(b => b.id !== billId);
-        if (DB.saveBillReminders(bills)) {
-            Utils.closeModal('editBillModal'); // Tutup jika modal edit terbuka
-            this.renderBillReminders();
-            this.renderUpcomingBills();
-            Utils.showToast('Tagihan berhasil dihapus!', 'success');
-        }
-    }
-
-    getOrCreateBillCategory(billType) {
-        const categories = DB.getCategories();
-        const categoryNames = {
-            'electricity': 'Listrik',
-            'water': 'Air',
-            'internet': 'Internet',
-            'phone': 'Telepon & Data',
-            'subscription': 'Subscription',
-            'credit-card': 'Kartu Kredit',
-            'insurance': 'Asuransi',
-            'other': 'Tagihan Lainnya'
-        };
-        
-        const categoryName = categoryNames[billType] || 'Tagihan Lainnya';
-        let billCategory = categories.find(c => c.name === categoryName && c.type === 'expense');
-        
-        if (!billCategory) {
-            billCategory = {
-                id: DB.generateId(),
-                name: categoryName,
-                type: 'expense',
-                emoji: '📄'
-            };
-            categories.push(billCategory);
-            DB.saveCategories(categories);
-        }
-        
-        return billCategory.id;
-    }
-
-    renderLiabilitiesList() {
-        const container = document.getElementById('liabilitiesList');
-        const liabilities = DB.getLiabilities();
-        
-        if (liabilities.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="emoji">😊</div>
-                    <p>Tidak ada liabilitas. Tambahkan liabilitas pertama Anda!</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = liabilities.map(liability => {
-            const paidAmount = this.calculatePaidAmount(liability.id);
-            const remaining = liability.amount - paidAmount;
-            const progressPercent = (paidAmount / liability.amount) * 100;
-            const daysLeft = this.calculateDaysLeft(liability.dueDate);
-            
-            let statusClass = '';
-            if (paidAmount >= liability.amount) {
-                statusClass = 'paid';
-            } else if (daysLeft < 0) {
-                statusClass = 'overdue';
-            }
-
-            return `
-                <div class="liability-item ${statusClass}" onclick="window.app.liabilitiesModule.showLiabilityDetail('${liability.id}')">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="flex: 1;">
-                            <h4>${liability.name}</h4>
-                            <p>${Utils.formatCurrency(liability.amount)} • ${liability.interestRate}% • Jatuh tempo: ${Utils.formatDate(liability.dueDate)}</p>
-                            <div class="debt-progress">
-                                <div class="debt-progress-bar" style="width: ${progressPercent}%"></div>
-                            </div>
-                            <p style="font-size: 12px; color: #666;">
-                                Terbayar: ${Utils.formatCurrency(paidAmount)} | Sisa: ${Utils.formatCurrency(remaining)}
-                                ${daysLeft > 0 ? `• ${daysLeft} hari lagi` : '<span style="color: var(--danger-color);">• Terlambat!</span>'}
-                            </p>
-                        </div>
-                        <button class="btn btn-success btn-sm" onclick="window.app.liabilitiesModule.showPayLiabilityModal('${liability.id}'); event.stopPropagation();">
-                            Bayar
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    renderLiabilitiesSummary() {
+    
+    async renderLiabilitiesSummary() {
         const container = document.getElementById('liabilitiesSummary');
-        const liabilities = DB.getLiabilities();
+        if (!container) return;
         
-        let totalAmount = 0;
-        let totalPaid = 0;
-        let totalRemaining = 0;
-        let overdueCount = 0;
-
-        liabilities.forEach(liability => {
-            totalAmount += liability.amount;
-            const paid = this.calculatePaidAmount(liability.id);
-            totalPaid += paid;
-            totalRemaining += (liability.amount - paid);
-            
-            if (this.calculateDaysLeft(liability.dueDate) < 0 && paid < liability.amount) {
-                overdueCount++;
-            }
+        const [liabilities, payments] = await Promise.all([DB.getLiabilities(), DB.getLiabilityPayments()]);
+        
+        const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const totalRemaining = totalLiabilities - totalPaid;
+        
+        const overdueLiabilities = liabilities.filter(l => {
+            const daysLeft = this.calculateDaysLeft(l.dueDate);
+            const paidAmount = this.calculatePaidAmount(l.id, payments);
+            return daysLeft < 0 && paidAmount < l.amount;
         });
+        
+        const totalOverdue = overdueLiabilities.reduce((sum, l) => {
+            const paidAmount = this.calculatePaidAmount(l.id, payments);
+            return sum + (l.amount - paidAmount);
+        }, 0);
 
         container.innerHTML = `
             <div class="liability-stats">
                 <div class="stat-card">
-                    <div class="stat-label">Total Liabilitas</div>
-                    <div class="stat-value" style="color: var(--danger-color);">${Utils.formatCurrency(totalAmount)}</div>
+                    <div class="stat-label">Total Hutang</div>
+                    <div class="stat-value" style="color: var(--danger-color);">${Utils.formatCurrency(totalLiabilities)}</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Total Terbayar</div>
@@ -713,56 +509,391 @@ export class LiabilitiesModule {
                     <div class="stat-value" style="color: var(--warning-color);">${Utils.formatCurrency(totalRemaining)}</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Terlambat</div>
-                    <div class="stat-value" style="color: ${overdueCount > 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${overdueCount}</div>
+                    <div class="stat-label">Hutang Terlambat</div>
+                    <div class="stat-value" style="color: var(--danger-color);">${Utils.formatCurrency(totalOverdue)}</div>
                 </div>
             </div>
         `;
     }
 
-    renderPaymentSchedule() {
+    async renderPaymentSchedule() {
         const container = document.getElementById('paymentSchedule');
-        const liabilities = DB.getLiabilities()
-            .filter(liability => {
-                const paid = this.calculatePaidAmount(liability.id);
-                return paid < liability.amount;
-            })
-            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-            .slice(0, 5);
-
-        if (liabilities.length === 0) {
+        if (!container) return;
+        
+        const [liabilities, payments] = await Promise.all([DB.getLiabilities(), DB.getLiabilityPayments()]);
+        
+        // Filter liabilitas yang belum lunas
+        const activeLiabilities = liabilities.filter(liability => {
+            const paidAmount = this.calculatePaidAmount(liability.id, payments);
+            return paidAmount < liability.amount;
+        });
+        
+        if (activeLiabilities.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #666;">Tidak ada jadwal pembayaran</p>';
             return;
         }
 
-        container.innerHTML = liabilities.map(liability => {
+        // Urutkan berdasarkan tanggal jatuh tempo
+        const sortedLiabilities = activeLiabilities.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        
+        container.innerHTML = sortedLiabilities.map(liability => {
+            const paidAmount = this.calculatePaidAmount(liability.id, payments);
+            const remaining = liability.amount - paidAmount;
             const daysLeft = this.calculateDaysLeft(liability.dueDate);
-            const paid = this.calculatePaidAmount(liability.id);
-            const remaining = liability.amount - paid;
+            
+            let statusClass = '';
+            let statusText = '';
+            
+            if (daysLeft < 0) {
+                statusClass = 'danger';
+                statusText = 'Terlambat';
+            } else if (daysLeft === 0) {
+                statusClass = 'warning';
+                statusText = 'Hari ini';
+            } else if (daysLeft <= 7) {
+                statusClass = 'warning';
+                statusText = `${daysLeft} hari`;
+            } else {
+                statusText = `${daysLeft} hari`;
+            }
 
             return `
-                <div class="payment-schedule-item">
+                <div class="payment-schedule-item" style="border-left-color: var(--${statusClass}-color);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${liability.name}</strong>
-                            <p style="margin: 0; font-size: 12px; color: #666;">
-                                ${Utils.formatDate(liability.dueDate)} • ${Utils.formatCurrency(remaining)}
-                            </p>
-                        </div>
-                        <span style="color: ${daysLeft <= 7 ? 'var(--danger-color)' : daysLeft <= 30 ? 'var(--warning-color)' : 'var(--success-color)'};">
-                            ${daysLeft} hari
-                        </span>
+                        <span>${liability.emoji} ${liability.name}</span>
+                        <span style="color: var(--${statusClass}-color); font-weight: bold;">${statusText}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666;">
+                        <span>${Utils.formatCurrency(remaining)}</span>
+                        <span>${Utils.formatDateShort(liability.dueDate)}</span>
                     </div>
                 </div>
             `;
         }).join('');
     }
 
-    calculatePaidAmount(liabilityId) {
-        const payments = DB.getLiabilityPayments();
-        return payments
-            .filter(payment => payment.liabilityId === liabilityId)
-            .reduce((total, payment) => total + payment.amount, 0);
+    async showAddLiabilityModal() {
+        const wallets = await DB.getWallets();
+        const walletOptions = wallets.map(w => `<option value="${w.id}">${w.emoji} ${w.name}</option>`).join('');
+        
+        const content = `
+            <form id="addLiabilityForm">
+                <div class="form-group">
+                    <label>Nama Hutang</label>
+                    <input type="text" class="form-control" id="liabilityName" required>
+                </div>
+                <div class="form-group">
+                    <label>Emoji</label>
+                    <input type="text" class="form-control" id="liabilityEmoji" value="💰" required>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Hutang</label>
+                    <input type="number" class="form-control" id="liabilityAmount" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Jatuh Tempo</label>
+                    <input type="date" class="form-control" id="liabilityDueDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Dompet untuk Pembayaran</label>
+                    <select class="form-control" id="liabilityWallet" required>
+                        ${walletOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Kreditur (Pemberi Pinjaman)</label>
+                    <input type="text" class="form-control" id="liabilityCreditor" placeholder="Nama bank/teman/keluarga">
+                </div>
+                <div class="form-group">
+                    <label>Catatan (Opsional)</label>
+                    <input type="text" class="form-control" id="liabilityNotes" placeholder="Catatan hutang">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Tambah Hutang</button>
+            </form>
+        `;
+        
+        Utils.createModal('addLiabilityModal', 'Tambah Hutang', content);
+        Utils.openModal('addLiabilityModal');
+
+        document.getElementById('addLiabilityForm').onsubmit = (e) => {
+            e.preventDefault();
+            this.processAddLiability();
+        };
+    }
+
+    async processAddLiability() {
+        const name = document.getElementById('liabilityName').value;
+        const emoji = document.getElementById('liabilityEmoji').value;
+        const amount = parseFloat(document.getElementById('liabilityAmount').value);
+        const dueDate = document.getElementById('liabilityDueDate').value;
+        const walletId = document.getElementById('liabilityWallet').value;
+        const creditor = document.getElementById('liabilityCreditor').value;
+        const notes = document.getElementById('liabilityNotes').value;
+
+        if (amount <= 0) {
+            return Utils.showToast('Jumlah hutang harus lebih dari 0', 'error');
+        }
+
+        const liabilities = await DB.getLiabilities();
+        liabilities.push({ 
+            id: DB.generateId(), 
+            name, 
+            emoji, 
+            amount, 
+            dueDate, 
+            walletId, 
+            creditor, 
+            notes,
+            createdAt: new Date().toISOString()
+        });
+        
+        await DB.saveLiabilities(liabilities);
+        Utils.closeModal('addLiabilityModal');
+        await this.renderLiabilitiesContent(document.getElementById('liabilitiesSubContent'));
+        Utils.showToast('Hutang berhasil ditambahkan!', 'success');
+    }
+
+    async showEditLiabilityModal(liabilityId) {
+        const liabilities = await DB.getLiabilities();
+        const liability = liabilities.find(l => l.id === liabilityId);
+        if (!liability) return;
+
+        const wallets = await DB.getWallets();
+        const walletOptions = wallets.map(w => `<option value="${w.id}" ${w.id === liability.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`).join('');
+
+        const content = `
+            <form id="editLiabilityForm">
+                <div class="form-group">
+                    <label>Nama Hutang</label>
+                    <input type="text" class="form-control" id="editLiabilityName" value="${liability.name}" required>
+                </div>
+                <div class="form-group">
+                    <label>Emoji</label>
+                    <input type="text" class="form-control" id="editLiabilityEmoji" value="${liability.emoji}" required>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Hutang</label>
+                    <input type="number" class="form-control" id="editLiabilityAmount" value="${liability.amount}" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Jatuh Tempo</label>
+                    <input type="date" class="form-control" id="editLiabilityDueDate" value="${liability.dueDate}" required>
+                </div>
+                <div class="form-group">
+                    <label>Dompet untuk Pembayaran</label>
+                    <select class="form-control" id="editLiabilityWallet" required>
+                        ${walletOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Kreditur (Pemberi Pinjaman)</label>
+                    <input type="text" class="form-control" id="editLiabilityCreditor" value="${liability.creditor || ''}" placeholder="Nama bank/teman/keluarga">
+                </div>
+                <div class="form-group">
+                    <label>Catatan (Opsional)</label>
+                    <input type="text" class="form-control" id="editLiabilityNotes" value="${liability.notes || ''}" placeholder="Catatan hutang">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Update Hutang</button>
+            </form>
+        `;
+        
+        Utils.createModal('editLiabilityModal', 'Edit Hutang', content);
+        Utils.openModal('editLiabilityModal');
+
+        document.getElementById('editLiabilityForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('editLiabilityName').value;
+            const emoji = document.getElementById('editLiabilityEmoji').value;
+            const amount = parseFloat(document.getElementById('editLiabilityAmount').value);
+            const dueDate = document.getElementById('editLiabilityDueDate').value;
+            const walletId = document.getElementById('editLiabilityWallet').value;
+            const creditor = document.getElementById('editLiabilityCreditor').value;
+            const notes = document.getElementById('editLiabilityNotes').value;
+
+            const updatedLiabilities = liabilities.map(l => 
+                l.id === liabilityId ? { ...l, name, emoji, amount, dueDate, walletId, creditor, notes } : l
+            );
+            
+            await DB.saveLiabilities(updatedLiabilities);
+            Utils.closeModal('editLiabilityModal');
+            await this.renderLiabilitiesContent(document.getElementById('liabilitiesSubContent'));
+            Utils.showToast('Hutang berhasil diperbarui!', 'success');
+        };
+    }
+
+    async showPayLiabilityModal(liabilityId) {
+        const [liability, payments] = await Promise.all([
+            DB.getLiabilities().then(l => l.find(li => li.id === liabilityId)),
+            DB.getLiabilityPayments()
+        ]);
+        
+        if (!liability) return;
+
+        const paidAmount = this.calculatePaidAmount(liabilityId, payments);
+        const remaining = liability.amount - paidAmount;
+
+        const content = `
+            <form id="payLiabilityForm">
+                <div class="form-group">
+                    <label>Hutang: ${liability.name}</label>
+                    <div style="font-size: 14px; color: #666;">
+                        Total: ${Utils.formatCurrency(liability.amount)} | 
+                        Terbayar: ${Utils.formatCurrency(paidAmount)} | 
+                        Sisa: ${Utils.formatCurrency(remaining)}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Jumlah Pembayaran</label>
+                    <input type="number" class="form-control" id="paymentAmount" required min="1" max="${remaining}">
+                    <small>Maksimal: ${Utils.formatCurrency(remaining)}</small>
+                </div>
+                <div class="form-group">
+                    <label>Tanggal Pembayaran</label>
+                    <input type="date" class="form-control" id="paymentDate" value="${new Date().toISOString().split('T')[0]}" required>
+                </div>
+                <div class="form-group">
+                    <label>Catatan Pembayaran (Opsional)</label>
+                    <input type="text" class="form-control" id="paymentNotes" placeholder="Catatan pembayaran">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Bayar Hutang</button>
+            </form>
+        `;
+        
+        Utils.createModal('payLiabilityModal', 'Bayar Hutang', content);
+        Utils.openModal('payLiabilityModal');
+
+        document.getElementById('payLiabilityForm').onsubmit = (e) => {
+            e.preventDefault();
+            this.processPayment(liabilityId);
+        };
+    }
+
+    async processPayment(liabilityId) {
+        const paymentAmount = parseFloat(document.getElementById('paymentAmount').value);
+        const paymentDate = document.getElementById('paymentDate').value;
+        const paymentNotes = document.getElementById('paymentNotes').value;
+
+        const [liabilities, wallets, payments, transactions] = await Promise.all([
+            DB.getLiabilities(), DB.getWallets(), DB.getLiabilityPayments(), DB.getTransactions()
+        ]);
+        
+        const liability = liabilities.find(l => l.id === liabilityId);
+        const wallet = wallets.find(w => w.id === liability.walletId);
+        const paidAmount = this.calculatePaidAmount(liabilityId, payments);
+
+        // Validasi
+        if (paymentAmount > (liability.amount - paidAmount)) {
+            return Utils.showToast('Pembayaran melebihi sisa hutang!', 'error');
+        }
+        
+        if (!wallet || wallet.balance < paymentAmount) {
+            return Utils.showToast('Saldo dompet tidak cukup!', 'error');
+        }
+
+        // Update saldo dompet
+        wallet.balance -= paymentAmount;
+        
+        // Tambahkan pembayaran
+        payments.push({ 
+            id: DB.generateId(), 
+            liabilityId, 
+            amount: paymentAmount, 
+            date: paymentDate, 
+            notes: paymentNotes 
+        });
+        
+        // Buat transaksi pengeluaran
+        const categoryId = await this.getOrCreateLiabilityCategory();
+        transactions.push({ 
+            id: DB.generateId(), 
+            type: 'expense', 
+            amount: paymentAmount, 
+            walletId: liability.walletId, 
+            categoryId, 
+            date: paymentDate, 
+            notes: `Pembayaran hutang: ${liability.name}` 
+        });
+
+        await Promise.all([
+            DB.saveWallets(wallets),
+            DB.saveLiabilityPayments(payments),
+            DB.saveTransactions(transactions)
+        ]);
+
+        Utils.closeModal('payLiabilityModal');
+        await this.renderLiabilitiesContent(document.getElementById('liabilitiesSubContent'));
+        await this.app.updateTotalBalance();
+        Utils.showToast('Pembayaran berhasil!', 'success');
+    }
+    
+    async deleteLiability(liabilityId) {
+        if (confirm('Hapus liabilitas ini? Riwayat pembayaran juga akan dihapus.')) {
+            let [liabilities, payments] = await Promise.all([DB.getLiabilities(), DB.getLiabilityPayments()]);
+            liabilities = liabilities.filter(l => l.id !== liabilityId);
+            payments = payments.filter(p => p.liabilityId !== liabilityId);
+            await Promise.all([DB.saveLiabilities(liabilities), DB.saveLiabilityPayments(payments)]);
+            await this.renderLiabilitiesContent(document.getElementById('liabilitiesSubContent'));
+            Utils.showToast('Hutang berhasil dihapus!', 'success');
+        }
+    }
+
+    async getOrCreateLiabilityCategory() {
+        let categories = await DB.getCategories();
+        let liabilityCategory = categories.find(c => c.name === 'Pembayaran Hutang');
+        if (!liabilityCategory) {
+            liabilityCategory = { id: DB.generateId(), name: 'Pembayaran Hutang', type: 'expense', emoji: '🏦' };
+            categories.push(liabilityCategory);
+            await DB.saveCategories(categories);
+        }
+        return liabilityCategory.id;
+    }
+
+    async getOrCreateBillCategory(billType) {
+        let categories = await DB.getCategories();
+        let categoryName = '';
+        let categoryEmoji = '';
+        
+        switch(billType) {
+            case 'electricity':
+                categoryName = 'Listrik';
+                categoryEmoji = '⚡';
+                break;
+            case 'water':
+                categoryName = 'Air';
+                categoryEmoji = '💧';
+                break;
+            case 'internet':
+                categoryName = 'Internet';
+                categoryEmoji = '🌐';
+                break;
+            case 'phone':
+                categoryName = 'Telepon';
+                categoryEmoji = '📱';
+                break;
+            case 'subscription':
+                categoryName = 'Langganan';
+                categoryEmoji = '🔄';
+                break;
+            case 'credit-card':
+                categoryName = 'Kartu Kredit';
+                categoryEmoji = '💳';
+                break;
+            case 'insurance':
+                categoryName = 'Asuransi';
+                categoryEmoji = '🛡️';
+                break;
+            default:
+                categoryName = 'Tagihan';
+                categoryEmoji = '📄';
+        }
+
+        let billCategory = categories.find(c => c.name === categoryName && c.type === 'expense');
+        if (!billCategory) {
+            billCategory = { id: DB.generateId(), name: categoryName, type: 'expense', emoji: categoryEmoji };
+            categories.push(billCategory);
+            await DB.saveCategories(categories);
+        }
+        return billCategory.id;
     }
 
     calculateDaysLeft(dueDate) {
@@ -772,312 +903,5 @@ export class LiabilitiesModule {
         due.setHours(0, 0, 0, 0);
         const diffTime = due.getTime() - today.getTime();
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }
-
-    showAddLiabilityModal() {
-        const wallets = DB.getWallets();
-        const walletOptions = wallets.map(w => 
-            `<option value="${w.id}">${w.emoji} ${w.name} - ${Utils.formatCurrency(w.balance)}</option>`
-        ).join('');
-        const modalId = 'addLiabilityModal';
-
-        const content = `
-            <form id="addLiabilityForm">
-                <div class="form-group">
-                    <label class="form-label">Nama Liabilitas</label>
-                    <input type="text" class="form-control" id="liabilityName" placeholder="Contoh: Kredit Mobil, Kartu Kredit BCA, dll" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Jenis Liabilitas</label>
-                    <select class="form-control" id="liabilityType" required>
-                        <option value="credit-card">Kartu Kredit</option>
-                        <option value="loan">Pinjaman Bank</option>
-                        <option value="mortgage">KPR</option>
-                        <option value="personal">Pinjaman Pribadi</option>
-                        <option value="other">Lainnya</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Jumlah Hutang</label>
-                    <input type="number" class="form-control" id="liabilityAmount" required min="1">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Suku Bunga (%) per tahun</label>
-                    <input type="number" class="form-control" id="liabilityInterest" step="0.1" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Tanggal Jatuh Tempo</label>
-                    <input type="date" class="form-control" id="liabilityDueDate" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Dompet untuk Pembayaran</label>
-                    <select class="form-control" id="liabilityWallet" required>
-                        ${walletOptions}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Catatan (opsional)</label>
-                    <textarea class="form-control" id="liabilityNotes" rows="2"></textarea>
-                </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">➕ Tambah Liabilitas</button>
-            </form>
-        `;
-
-        Utils.createModal(modalId, 'Tambah Liabilitas', content);
-        Utils.openModal(modalId);
-
-        document.getElementById('liabilityDueDate').min = new Date().toISOString().split('T')[0];
-
-        document.getElementById('addLiabilityForm').onsubmit = (e) => {
-            e.preventDefault();
-            this.processAddLiability();
-        };
-    }
-
-    processAddLiability() {
-        const name = document.getElementById('liabilityName').value;
-        const type = document.getElementById('liabilityType').value;
-        const amount = parseFloat(document.getElementById('liabilityAmount').value);
-        const interestRate = parseFloat(document.getElementById('liabilityInterest').value);
-        const dueDate = document.getElementById('liabilityDueDate').value;
-        const walletId = document.getElementById('liabilityWallet').value;
-        const notes = document.getElementById('liabilityNotes').value;
-
-        if (!name || !amount || !dueDate || !walletId) {
-            Utils.showToast('Harap isi semua field yang wajib!', 'error');
-            return;
-        }
-
-        const liabilities = DB.getLiabilities();
-        liabilities.push({
-            id: DB.generateId(),
-            name,
-            type,
-            amount,
-            interestRate,
-            dueDate,
-            walletId,
-            notes,
-            createdAt: new Date().toISOString()
-        });
-
-        if (DB.saveLiabilities(liabilities)) {
-            Utils.closeModal('addLiabilityModal');
-            this.renderLiabilitiesList();
-            this.renderLiabilitiesSummary();
-            this.renderPaymentSchedule();
-            Utils.showToast('Liabilitas berhasil ditambahkan!', 'success');
-        }
-    }
-
-    showPayLiabilityModal(liabilityId) {
-        const liability = DB.getLiabilities().find(l => l.id === liabilityId);
-        if (!liability) return;
-
-        const paidAmount = this.calculatePaidAmount(liabilityId);
-        const remaining = liability.amount - paidAmount;
-        const modalId = 'payLiabilityModal';
-
-        const content = `
-            <form id="payLiabilityForm">
-                <div class="form-group">
-                    <label class="form-label">Liabilitas</label>
-                    <input type="text" class="form-control" value="${liability.name}" disabled>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Sisa Hutang</label>
-                    <input type="text" class="form-control" value="${Utils.formatCurrency(remaining)}" disabled>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Jumlah Pembayaran</label>
-                    <input type="number" class="form-control" id="paymentAmount" 
-                           max="${remaining}" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Tanggal Pembayaran</label>
-                    <input type="date" class="form-control" id="paymentDate" 
-                           value="${new Date().toISOString().split('T')[0]}" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Catatan (opsional)</label>
-                    <input type="text" class="form-control" id="paymentNotes" 
-                           placeholder="Contoh: Angsuran ke-1">
-                </div>
-                <button type="submit" class="btn btn-success" style="width: 100%;">💸 Bayar</button>
-            </form>
-        `;
-
-        Utils.createModal(modalId, 'Bayar Liabilitas', content);
-        Utils.openModal(modalId);
-
-        document.getElementById('payLiabilityForm').onsubmit = (e) => {
-            e.preventDefault();
-            this.processPayment(liabilityId);
-        };
-    }
-
-    processPayment(liabilityId) {
-        const liability = DB.getLiabilities().find(l => l.id === liabilityId);
-        if (!liability) return;
-
-        const paymentAmount = parseFloat(document.getElementById('paymentAmount').value);
-        const paymentDate = document.getElementById('paymentDate').value;
-        const paymentNotes = document.getElementById('paymentNotes').value;
-
-        const paidAmount = this.calculatePaidAmount(liabilityId);
-        const remaining = liability.amount - paidAmount;
-
-        if (paymentAmount > remaining) {
-            Utils.showToast('Jumlah pembayaran melebihi sisa hutang!', 'error');
-            return;
-        }
-
-        const wallet = DB.getWallets().find(w => w.id === liability.walletId);
-        if (!wallet || wallet.balance < paymentAmount) {
-            Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
-            return;
-        }
-
-        wallet.balance -= paymentAmount;
-        DB.saveWallets(DB.getWallets().map(w => w.id === wallet.id ? wallet : w));
-
-        const payments = DB.getLiabilityPayments();
-        payments.push({
-            id: DB.generateId(),
-            liabilityId,
-            amount: paymentAmount,
-            date: paymentDate,
-            notes: paymentNotes,
-            createdAt: new Date().toISOString()
-        });
-
-        if (DB.saveLiabilityPayments(payments)) {
-            Utils.closeModal('payLiabilityModal');
-            
-            const transactions = DB.getTransactions();
-            const category = this.getOrCreateLiabilityCategory();
-            
-            transactions.push({
-                id: DB.generateId(),
-                type: 'expense',
-                amount: paymentAmount,
-                walletId: liability.walletId,
-                categoryId: category,
-                date: paymentDate,
-                notes: `Pembayaran liabilitas: ${liability.name}` + (paymentNotes ? ` - ${paymentNotes}` : ''),
-                createdAt: new Date().toISOString()
-            });
-            DB.saveTransactions(transactions);
-
-            this.renderLiabilitiesList();
-            this.renderLiabilitiesSummary();
-            this.renderPaymentSchedule();
-            this.app.dashboardModule.renderWalletsList(); // Update wallets list on dashboard
-            this.app.updateTotalBalance();
-            Utils.showToast('Pembayaran berhasil!', 'success');
-        }
-    }
-
-    showLiabilityDetail(liabilityId) {
-        const liability = DB.getLiabilities().find(l => l.id === liabilityId);
-        if (!liability) return;
-        const modalId = 'liabilityDetailModal';
-
-        const payments = DB.getLiabilityPayments()
-            .filter(p => p.liabilityId === liabilityId)
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        const paidAmount = this.calculatePaidAmount(liabilityId);
-        const remaining = liability.amount - paidAmount;
-        const progressPercent = (paidAmount / liability.amount) * 100;
-
-        const paymentsHTML = payments.length === 0 ? 
-            '<p style="text-align: center; color: #666;">Belum ada pembayaran</p>' :
-            payments.map(payment => `
-                <div class="payment-item">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span>${Utils.formatDate(payment.date)}</span>
-                        <span style="color: var(--success-color);">-${Utils.formatCurrency(payment.amount)}</span>
-                    </div>
-                    ${payment.notes ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #666;">${payment.notes}</p>` : ''}
-                </div>
-            `).join('');
-
-        const content = `
-            <div style="margin-bottom: 20px;">
-                <h4>${liability.name}</h4>
-                <p><strong>Jenis:</strong> ${this.getLiabilityTypeName(liability.type)}</p>
-                <p><strong>Total Hutang:</strong> ${Utils.formatCurrency(liability.amount)}</p>
-                <p><strong>Suku Bunga:</strong> ${liability.interestRate}% per tahun</p>
-                <p><strong>Jatuh Tempo:</strong> ${Utils.formatDate(liability.dueDate)}</p>
-                <p><strong>Terbayar:</strong> <span style="color: var(--success-color);">${Utils.formatCurrency(paidAmount)}</span></p>
-                <p><strong>Sisa:</strong> <span style="color: var(--warning-color);">${Utils.formatCurrency(remaining)}</span></p>
-                
-                <div class="debt-progress">
-                    <div class="debt-progress-bar" style="width: ${progressPercent}%"></div>
-                </div>
-            </div>
-
-            <h5>Riwayat Pembayaran</h5>
-            <div style="max-height: 300px; overflow-y: auto;">
-                ${paymentsHTML}
-            </div>
-
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                <button class="btn btn-success" onclick="window.app.liabilitiesModule.showPayLiabilityModal('${liability.id}')" style="flex: 1;">
-                    💸 Bayar
-                </button>
-                <button class="btn btn-danger" onclick="window.app.liabilitiesModule.deleteLiability('${liability.id}')" style="flex: 1;">
-                    🗑️ Hapus
-                </button>
-            </div>
-        `;
-
-        Utils.createModal(modalId, 'Detail Liabilitas', content);
-        Utils.openModal(modalId);
-    }
-
-    getLiabilityTypeName(type) {
-        const types = {
-            'credit-card': 'Kartu Kredit',
-            'loan': 'Pinjaman Bank',
-            'mortgage': 'KPR',
-            'personal': 'Pinjaman Pribadi',
-            'other': 'Lainnya'
-        };
-        return types[type] || type;
-    }
-
-    deleteLiability(liabilityId) {
-        if (confirm('Hapus liabilitas ini? Riwayat pembayaran juga akan dihapus.')) {
-            let liabilities = DB.getLiabilities().filter(l => l.id !== liabilityId);
-            let payments = DB.getLiabilityPayments().filter(p => p.liabilityId !== liabilityId);
-            
-            if (DB.saveLiabilities(liabilities) && DB.saveLiabilityPayments(payments)) {
-                Utils.closeModal('liabilityDetailModal');
-                this.renderLiabilitiesList();
-                this.renderLiabilitiesSummary();
-                this.renderPaymentSchedule();
-                Utils.showToast('Liabilitas berhasil dihapus!', 'success');
-            }
-        }
-    }
-
-    getOrCreateLiabilityCategory() {
-        const categories = DB.getCategories();
-        let liabilityCategory = categories.find(c => c.name === 'Pembayaran Hutang' && c.type === 'expense');
-        
-        if (!liabilityCategory) {
-            liabilityCategory = {
-                id: DB.generateId(),
-                name: 'Pembayaran Hutang',
-                type: 'expense',
-                emoji: '🏦'
-            };
-            categories.push(liabilityCategory);
-            DB.saveCategories(categories);
-        }
-        
-        return liabilityCategory.id;
     }
 }
