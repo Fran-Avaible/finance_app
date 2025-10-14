@@ -1620,13 +1620,147 @@ canvas {
     border-top: 1px solid #eee;
 }
 
-/* Responsive */
+/* ============================================= */
+/* ===== MOBILE REVAMP STYLES (START HERE) ===== */
+/* ============================================= */
+
 @media (max-width: 768px) {
-    .form-row {
-        grid-template-columns: 1fr;
+
+    /* --- 1. GLOBAL & LAYOUT ADJUSTMENTS --- */
+    body {
+        -webkit-tap-highlight-color: transparent; /* Mencegah highlight saat disentuh */
+    }
+
+    .app-container {
+        padding: var(--spacing-sm); /* Kurangi padding utama */
+    }
+
+    .app-header h1 {
+        font-size: 22px; /* Perkecil judul utama */
+    }
+
+    .card {
+        padding: var(--spacing-md); /* Sedikit kurangi padding kartu */
+    }
+
+    /* --- 2. MAIN NAVIGATION REVAMP (HORIZONTAL SCROLL) --- */
+    .tab-navigation {
+        display: flex; /* Ubah dari grid ke flex */
+        overflow-x: auto; /* Aktifkan scrolling horizontal */
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch; /* Scrolling mulus di iOS */
+        scrollbar-width: none; /* Sembunyikan scrollbar di Firefox */
+        padding: var(--spacing-xs);
+        margin: 0 calc(var(--spacing-sm) * -1) var(--spacing-lg) calc(var(--spacing-sm) * -1);
+        padding-left: var(--spacing-sm);
+        padding-right: var(--spacing-sm);
+    }
+
+    .tab-navigation::-webkit-scrollbar {
+        display: none; /* Sembunyikan scrollbar di Chrome/Safari */
+    }
+
+    .tab-btn {
+        flex: 0 0 auto; /* Mencegah tombol menyusut */
+        white-space: nowrap; /* Pastikan teks tidak terpotong */
+        padding: 10px 14px;
+        font-size: 13px;
+        scroll-snap-align: start; /* (Opsional) untuk snapping */
     }
     
+    /* --- 3. FIXING SPECIFIC TAB LAYOUTS --- */
+
+    /* [FIX] Transactions: Ringkasan tumpang tindih */
+    /* Menargetkan div yang dibuat di transactions.js untuk ringkasan */
+    #allTransactions > div:first-child > div {
+        flex-wrap: wrap; /* Izinkan item untuk pindah ke baris baru */
+        gap: var(--spacing-md);
+        justify-content: space-around;
+        padding: var(--spacing-sm);
+    }
+    #allTransactions > div:first-child > div > div {
+        min-width: 45%; /* Setiap item statistik minimal memakan setengah lebar */
+        text-align: center;
+    }
+
+
+    /* [FIX] Reports: Tata letak 2 kolom menjadi 1 kolom */
+    #reportContent .tab-grid-2,
+    #chartsContainer .tab-grid-2 {
+        grid-template-columns: 1fr !important; /* Paksa jadi 1 kolom */
+    }
+    /* Menargetkan grid layout yang dibuat di reports.js */
+    #reportContent > div:last-child {
+         grid-template-columns: 1fr !important;
+    }
+    #chartsContainer > div:first-of-type {
+        grid-template-columns: 1fr !important;
+    }
+
+
+    /* [FIX] Personalization: Tata letak & floating preview */
+    #personalization-tab .tab-grid-2,
+    #personalization-tab .form-grid-2,
+    #personalization-tab .color-grid {
+        grid-template-columns: 1fr !important; /* Semua grid menjadi 1 kolom */
+    }
+
+    #personalization-tab .quick-actions {
+        justify-content: center; /* Tombol preset tema lebih rapi */
+        flex-wrap: wrap;
+    }
+
+    /* Non-aktifkan mode floating di mobile untuk mencegah tumpang tindih */
+    .floating-preview.floating-active {
+        position: relative !important;
+        top: auto !important;
+        right: auto !important;
+        width: 100% !important;
+        cursor: default !important;
+        box-shadow: var(--shadow-sm) !important;
+        border: 1px solid var(--border-color) !important;
+        transform: none !important;
+        backdrop-filter: none !important;
+    }
+    .floating-preview.floating-active::before {
+        display: none; /* Sembunyikan handle drag */
+    }
+
+
+    /* [FIX] Calendar: Ukuran header kalender lebih kecil */
+    .calendar-day-header {
+        font-size: 11px;
+        padding: 6px;
+    }
+    .calendar-day {
+        min-height: 50px;
+        padding: 4px;
+    }
+    .day-number {
+        font-size: 12px;
+    }
+
+    /* --- 4. QUICK ACTIONS & BUTTONS --- */
+    .quick-actions {
+        grid-template-columns: 1fr 1fr; /* Buat tombol aksi jadi 2 kolom */
+    }
+    .quick-actions .btn {
+        font-size: 13px;
+        padding: 10px;
+    }
+
+    /* --- 5. MODAL & FORMS --- */
+    .modal-content {
+        padding: var(--spacing-lg);
+        max-height: 85vh;
+    }
+}
+
+/* =========================================== */
+/* ===== MOBILE REVAMP STYLES (END HERE) ===== */
+/* =========================================== */
     .form-actions {
         flex-direction: column;
     }
 }
+
