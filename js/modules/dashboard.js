@@ -1,4 +1,4 @@
-// MultipleFiles/js/modules/dashboard.js
+// js/modules/dashboard.js (Versi Final dengan async/await)
 import { DB } from '../database.js';
 import { Utils } from '../utils.js';
 
@@ -7,7 +7,8 @@ export class DashboardModule {
         this.app = app; // Referensi ke instance FinanceApp
     }
 
-    render(container) {
+    // Fungsi render utama sekarang menjadi async
+    async render(container) {
         container.innerHTML = `
             <div class="quick-actions">
                 <button class="btn btn-primary" onclick="window.app.showAddTransactionModal()">
@@ -15,12 +16,6 @@ export class DashboardModule {
                 </button>
                 <button class="btn btn-secondary" onclick="window.app.showTransferModal()">
                     <span>🔄</span> Transfer
-                </button>
-                <button class="btn btn-success" onclick="window.app.exportData()">
-                    <span>📤</span> Export
-                </button>
-                <button class="btn btn-info" onclick="window.app.showBackupModal()">
-                    <span>💾</span> Backup
                 </button>
             </div>
 
@@ -48,14 +43,19 @@ export class DashboardModule {
             </div>
         `;
 
-        this.renderWalletsList();
-        this.renderRecentTransactions();
-        this.renderQuickStats();
+        // Panggil semua fungsi render-bagian dengan 'await'
+        // Ini memastikan setiap bagian dimuat secara berurutan setelah datanya siap.
+        await this.renderWalletsList();
+        await this.renderRecentTransactions();
+        await this.renderQuickStats();
     }
 
-    renderWalletsList() {
-        const wallets = DB.getWallets();
+    async renderWalletsList() {
         const container = document.getElementById('walletsList');
+        // Gunakan 'await' untuk menunggu data dari IndexedDB
+        const wallets = await DB.getWallets();
+        
+        if (!container) return;
         
         if (wallets.length === 0) {
             container.innerHTML = `
@@ -78,14 +78,22 @@ export class DashboardModule {
         `).join('');
     }
 
-    renderRecentTransactions() {
-        const transactions = DB.getTransactions()
+    async renderRecentTransactions() {
+        const container = document.getElementById('recentTransactions');
+        if (!container) return;
+
+        // Ambil semua data yang dibutuhkan secara paralel untuk efisiensi
+        const [transactions, wallets, categories] = await Promise.all([
+            DB.getTransactions(),
+            DB.getWallets(),
+            DB.getCategories()
+        ]);
+        
+        const sortedTransactions = transactions
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .slice(0, 5);
             
-        const container = document.getElementById('recentTransactions');
-        
-        if (transactions.length === 0) {
+        if (sortedTransactions.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="emoji">📝</div>
@@ -95,9 +103,9 @@ export class DashboardModule {
             return;
         }
 
-        container.innerHTML = transactions.map(transaction => {
-            const wallet = DB.getWallets().find(w => w.id === transaction.walletId);
-            const category = DB.getCategories().find(c => c.id === transaction.categoryId);
+        container.innerHTML = sortedTransactions.map(transaction => {
+            const wallet = wallets.find(w => w.id === transaction.walletId);
+            const category = categories.find(c => c.id === transaction.categoryId);
             const typeClass = transaction.type;
             const amountPrefix = transaction.type === 'income' ? '+' : 
                                transaction.type === 'expense' ? '-' : '';
@@ -117,9 +125,11 @@ export class DashboardModule {
         }).join('');
     }
 
-    renderQuickStats() {
-        const transactions = DB.getTransactions();
+    async renderQuickStats() {
         const container = document.getElementById('quickStats');
+        if (!container) return;
+
+        const transactions = await DB.getTransactions();
         
         const totalIncome = transactions
             .filter(t => t.type === 'income')
