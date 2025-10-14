@@ -1,423 +1,457 @@
-// MultipleFiles/js/database.js
+// js/database.js (Versi Final dengan Fitur Schedule)
 
 export const DB = {
-    init() {
-        console.log('🔄 Initializing DB...');
-        if (!localStorage.getItem('wallets')) {
-            const defaultWallets = [
-                { id: this.generateId(), name: 'Cash', balance: 500000, emoji: '💵' },
-                { id: this.generateId(), name: 'Bank Account', balance: 1500000, emoji: '💳' }
-            ];
-            localStorage.setItem('wallets', JSON.stringify(defaultWallets));
-            console.log('✅ Default wallets created');
-        }
+    db: null,
+    dbName: 'FinanceSuperAppDB',
+    dbVersion: 2, // Ubah versi menjadi 2 untuk menambahkan store schedules
 
-        if (!localStorage.getItem('categories')) {
-            const defaultCategories = [
-                { id: this.generateId(), name: 'Food', type: 'expense', emoji: '🍔' },
-                { id: this.generateId(), name: 'Transport', type: 'expense', emoji: '🚌' },
-                { id: this.generateId(), name: 'Salary', type: 'income', emoji: '💰' },
-                { id: this.generateId(), name: 'Shopping', type: 'expense', emoji: '🛍️' },
-                { id: this.generateId(), name: 'Entertainment', type: 'expense', emoji: '🎬' },
-                { id: this.generateId(), name: 'Utilities', type: 'expense', emoji: '💡' },
-                { id: this.generateId(), name: 'Transfer', type: 'transfer', emoji: '🔄' }
-            ];
-            localStorage.setItem('categories', JSON.stringify(defaultCategories));
-            console.log('✅ Default categories created');
-        }
+    // ====================================================================
+    // 1. INISIALISASI & KONEKSI DATABASE
+    // ====================================================================
+    async init() {
+        if (this.db) return Promise.resolve(this.db); // Jika sudah terkoneksi, jangan buka lagi
 
-        if (!localStorage.getItem('transactions')) {
-            localStorage.setItem('transactions', JSON.stringify([]));
-        }
+        return new Promise((resolve, reject) => {
+            console.log('🔄 Initializing IndexedDB connection...');
+            const request = indexedDB.open(this.dbName, this.dbVersion);
 
-        if (!localStorage.getItem('budgets')) {
-            localStorage.setItem('budgets', JSON.stringify([]));
-        }
-
-        // Initialize gold data
-        if (!localStorage.getItem('goldWallets')) {
-            const defaultGoldWallets = [
-                { 
-                    id: this.generateId(), 
-                    name: 'Tabungan Emas', 
-                    type: 'gold',
-                    weight: 0,
-                    purity: 24,
-                    buyPrice: 0,
-                    emoji: '🪙'
-                }
-            ];
-            localStorage.setItem('goldWallets', JSON.stringify(defaultGoldWallets));
-        }
-        
-        if (!localStorage.getItem('goldTransactions')) {
-            localStorage.setItem('goldTransactions', JSON.stringify([]));
-        }
-        
-        if (!localStorage.getItem('currentGoldPrice')) {
-            this.saveGoldPrice({
-                buy: 1000000,
-                sell: 980000,
-                source: 'Initial'
-            });
-        }
-
-        // Initialize savings goals
-        if (!localStorage.getItem('savingsGoals')) {
-            localStorage.setItem('savingsGoals', JSON.stringify([]));
-        }
-        if (!localStorage.getItem('savingsTransactions')) {
-            localStorage.setItem('savingsTransactions', JSON.stringify([]));
-        }
-
-        // Initialize bill reminders
-        if (!localStorage.getItem('billReminders')) {
-            localStorage.setItem('billReminders', JSON.stringify([]));
-        }
-
-        // Initialize liabilities
-        if (!localStorage.getItem('liabilities')) {
-            localStorage.setItem('liabilities', JSON.stringify([]));
-        }
-        if (!localStorage.getItem('liabilityPayments')) {
-            localStorage.setItem('liabilityPayments', JSON.stringify([]));
-        }
-
-        console.log('✅ DB initialization complete');
-    },
-
-    generateId: () => {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    },
-
-    getWallets() {
-        return JSON.parse(localStorage.getItem('wallets') || '[]');
-    },
-
-    saveWallets(wallets) {
-        try {
-            localStorage.setItem('wallets', JSON.stringify(wallets));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan wallets:', e);
-            window.app.utils.showToast('Gagal menyimpan data dompet', 'error');
-            return false;
-        }
-    },
-
-    getCategories() {
-        return JSON.parse(localStorage.getItem('categories') || '[]');
-    },
-
-    saveCategories(categories) {
-        try {
-            localStorage.setItem('categories', JSON.stringify(categories));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan categories:', e);
-            window.app.utils.showToast('Gagal menyimpan data kategori', 'error');
-            return false;
-        }
-    },
-
-    getTransactions() {
-        return JSON.parse(localStorage.getItem('transactions') || '[]');
-    },
-
-    saveTransactions(transactions) {
-        try {
-            localStorage.setItem('transactions', JSON.stringify(transactions));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan transactions:', e);
-            window.app.utils.showToast('Gagal menyimpan data transaksi', 'error');
-            return false;
-        }
-    },
-
-    getBudgets() {
-        return JSON.parse(localStorage.getItem('budgets') || '[]');
-    },
-
-    saveBudgets(budgets) {
-        try {
-            localStorage.setItem('budgets', JSON.stringify(budgets));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan budgets:', e);
-            window.app.utils.showToast('Gagal menyimpan data budget', 'error');
-            return false;
-        }
-    },
-
-    getCategoryById(categoryId) {
-        return this.getCategories().find(c => c.id === categoryId);
-    },
-
-    getGoldWallets() {
-        return JSON.parse(localStorage.getItem('goldWallets') || '[]');
-    },
-
-    saveGoldWallets(wallets) {
-        try {
-            localStorage.setItem('goldWallets', JSON.stringify(wallets));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan goldWallets:', e);
-            return false;
-        }
-    },
-
-    getGoldTransactions() {
-        return JSON.parse(localStorage.getItem('goldTransactions') || '[]');
-    },
-
-    saveGoldTransactions(transactions) {
-        try {
-            localStorage.setItem('goldTransactions', JSON.stringify(transactions));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan goldTransactions:', e);
-            return false;
-        }
-    },
-
-    getGoldPrice() {
-        const saved = localStorage.getItem('currentGoldPrice');
-        if (!saved) {
-            return { buy: 1000000, sell: 980000, lastUpdate: '', source: 'Default' };
-        }
-        return JSON.parse(saved);
-    },
-
-    saveGoldPrice(price) {
-        try {
-            const completePrice = {
-                buy: price.buy,
-                sell: price.sell,
-                lastUpdate: new Date().toISOString(),
-                source: price.source || 'Manual Input'
+            request.onerror = (event) => {
+                console.error('IndexedDB error:', event.target.error);
+                reject('Error opening database');
             };
-            
-            localStorage.setItem('currentGoldPrice', JSON.stringify(completePrice));
-            console.log('💾 Gold price saved:', completePrice);
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan gold price:', e);
-            return false;
-        }
-    },
 
-    async fetchPegadaianGoldPrice() {
-        try {
-            console.log('🔄 Fetching gold price from Pegadaian...');
-            
-            const priceData = await this.simulateGoldPriceFetch();
-            if (priceData && priceData.buy > 0) {
-                console.log('✅ Gold price fetched:', priceData);
-                return priceData;
-            }
-            
-            return this.getDefaultGoldPrice();
-            
-        } catch (error) {
-            console.error('❌ Gold price fetch failed:', error);
-            return this.getDefaultGoldPrice();
-        }
-    },
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                console.log('✅ IndexedDB connection successful.');
+                resolve(this.db);
+            };
 
-    simulateGoldPriceFetch() {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const basePrice = 1200000;
-                const randomVariation = Math.random() * 50000 - 25000;
-                const currentBuy = Math.round(basePrice + randomVariation);
-                const currentSell = Math.round(currentBuy * 0.96);
-                
-                resolve({
-                    buy: currentBuy,
-                    sell: currentSell,
-                    lastUpdate: new Date().toISOString(),
-                    source: 'Pegadaian (Simulated)'
+            // Fungsi ini hanya berjalan saat database dibuat pertama kali atau saat versi diubah
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                const transaction = event.target.transaction;
+                console.log('🚀 Upgrading IndexedDB schema...');
+
+                const objectStores = [
+                    { name: 'wallets', key: 'id' },
+                    { name: 'categories', key: 'id' },
+                    { name: 'transactions', key: 'id' },
+                    { name: 'budgets', key: 'id' },
+                    { name: 'goldWallets', key: 'id' },
+                    { name: 'goldTransactions', key: 'id' },
+                    { name: 'currentGoldPrice', key: 'id' }, // Hanya akan ada 1 item di sini
+                    { name: 'savingsGoals', key: 'id' },
+                    { name: 'savingsTransactions', key: 'id' },
+                    { name: 'billReminders', key: 'id' },
+                    { name: 'liabilities', key: 'id' },
+                    { name: 'liabilityPayments', key: 'id' },
+                    { name: 'schedules', key: 'id' }, // Tambahkan store untuk schedules
+                ];
+
+                objectStores.forEach(storeInfo => {
+                    if (!db.objectStoreNames.contains(storeInfo.name)) {
+                        db.createObjectStore(storeInfo.name, { keyPath: storeInfo.key });
+                        console.log(`- Object store '${storeInfo.name}' created.`);
+                    }
                 });
-            }, 2000);
+                
+                // Panggil fungsi untuk mengisi data default setelah semua store dibuat
+                this.initDefaultData(transaction);
+            };
         });
     },
 
-    getDefaultGoldPrice() {
-        return {
-            buy: 1200000,
-            sell: 1150000,
-            lastUpdate: new Date().toISOString(),
-            source: 'Default'
+    initDefaultData(transaction) {
+        console.log('🌱 Seeding default data...');
+        
+        // Data default hanya diisi jika store-nya kosong
+        const walletsStore = transaction.objectStore('wallets');
+        walletsStore.count().onsuccess = (e) => {
+            if (e.target.result === 0) {
+                walletsStore.add({ id: this.generateId(), name: 'Cash', balance: 500000, emoji: '💵' });
+                walletsStore.add({ id: this.generateId(), name: 'Bank Account', balance: 1500000, emoji: '💳' });
+                console.log('...Default wallets added.');
+            }
+        };
+
+        const categoriesStore = transaction.objectStore('categories');
+        categoriesStore.count().onsuccess = (e) => {
+            if (e.target.result === 0) {
+                categoriesStore.add({ id: this.generateId(), name: 'Food', type: 'expense', emoji: '🍔' });
+                categoriesStore.add({ id: this.generateId(), name: 'Transport', type: 'expense', emoji: '🚌' });
+                categoriesStore.add({ id: this.generateId(), name: 'Salary', type: 'income', emoji: '💰' });
+                console.log('...Default categories added.');
+            }
+        };
+
+        const goldPriceStore = transaction.objectStore('currentGoldPrice');
+        goldPriceStore.count().onsuccess = (e) => {
+            if (e.target.result === 0) {
+                goldPriceStore.add({ id: 'current', buy: 1000000, sell: 980000, source: 'Initial' });
+                console.log('...Default gold price set.');
+            }
+        };
+
+        // Data default untuk schedules (opsional)
+        const schedulesStore = transaction.objectStore('schedules');
+        schedulesStore.count().onsuccess = (e) => {
+            if (e.target.result === 0) {
+                const today = new Date().toISOString().split('T')[0];
+                schedulesStore.add({
+                    id: this.generateId(),
+                    title: 'Meeting Rutin',
+                    description: 'Meeting mingguan dengan tim',
+                    date: today,
+                    type: 'meeting',
+                    startTime: '09:00',
+                    endTime: '10:00',
+                    status: 'pending',
+                    isRecurring: false,
+                    createdAt: new Date().toISOString()
+                });
+                console.log('...Default schedule added.');
+            }
         };
     },
 
-    getSavingsGoals() {
-        return JSON.parse(localStorage.getItem('savingsGoals') || '[]');
+    // ====================================================================
+    // 2. FUNGSI PEMBANTU (HELPERS) GENERIC
+    // ====================================================================
+    async getAll(storeName) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    },
+    
+    async saveAll(storeName, dataArray) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            store.clear(); // Hapus semua data lama
+            dataArray.forEach(item => store.put(item)); // Masukkan data baru
+            transaction.oncomplete = () => resolve(true);
+            transaction.onerror = (e) => reject(e.target.error);
+        });
+    },
+    
+    async getById(storeName, id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (e) => reject(e.target.error);
+        });
     },
 
-    saveSavingsGoals(goals) {
-        try {
-            localStorage.setItem('savingsGoals', JSON.stringify(goals));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan savings goals:', e);
-            return false;
-        }
+    async addItem(storeName, item) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.add(item);
+            request.onsuccess = () => resolve(item);
+            request.onerror = (e) => reject(e.target.error);
+        });
     },
 
-    getSavingsTransactions() {
-        return JSON.parse(localStorage.getItem('savingsTransactions') || '[]');
-    },
-
-    saveSavingsTransactions(transactions) {
-        try {
-            localStorage.setItem('savingsTransactions', JSON.stringify(transactions));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan savings transactions:', e);
-            return false;
-        }
-    },
-
-    getBillReminders() {
-        return JSON.parse(localStorage.getItem('billReminders') || '[]');
-    },
-
-    saveBillReminders(reminders) {
-        try {
-            localStorage.setItem('billReminders', JSON.stringify(reminders));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan bill reminders:', e);
-            return false;
-        }
-    },
-
-    getLiabilities() {
-        return JSON.parse(localStorage.getItem('liabilities') || '[]');
-    },
-
-    saveLiabilities(liabilities) {
-        try {
-            localStorage.setItem('liabilities', JSON.stringify(liabilities));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan liabilities:', e);
-            return false;
-        }
-    },
-
-    getLiabilityPayments() {
-        return JSON.parse(localStorage.getItem('liabilityPayments') || '[]');
-    },
-
-    saveLiabilityPayments(payments) {
-        try {
-            localStorage.setItem('liabilityPayments', JSON.stringify(payments));
-            return true;
-        } catch (e) {
-            console.error('Gagal menyimpan liability payments:', e);
-            return false;
-        }
-    },
-
-    backupData() {
-        try {
-            const data = {
-                wallets: this.getWallets(),
-                categories: this.getCategories(),
-                transactions: this.getTransactions(),
-                budgets: this.getBudgets(),
-                goldWallets: this.getGoldWallets(),
-                goldTransactions: this.getGoldTransactions(),
-                currentGoldPrice: this.getGoldPrice(),
-                liabilities: this.getLiabilities(),
-                liabilityPayments: this.getLiabilityPayments(),
-                savingsGoals: this.getSavingsGoals(),
-                savingsTransactions: this.getSavingsTransactions(),
-                billReminders: this.getBillReminders(),
-                theme: window.app.utils.getTheme(),
-                exportedAt: new Date().toISOString(),
-                version: '3.0',
-                dataCount: {
-                    wallets: this.getWallets().length,
-                    transactions: this.getTransactions().length,
-                    budgets: this.getBudgets().length,
-                    goldWallets: this.getGoldWallets().length,
-                    goldTransactions: this.getGoldTransactions().length,
-                    liabilities: this.getLiabilities().length,
-                    liabilityPayments: this.getLiabilityPayments().length,
-                    savingsGoals: this.getSavingsGoals().length,
-                    billReminders: this.getBillReminders().length
+    async updateItem(storeName, id, updates) {
+        return new Promise(async (resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            
+            // Ambil data yang sudah ada
+            const getRequest = store.get(id);
+            getRequest.onsuccess = () => {
+                const existingItem = getRequest.result;
+                if (!existingItem) {
+                    reject(new Error('Item not found'));
+                    return;
                 }
+                
+                // Update data
+                const updatedItem = { ...existingItem, ...updates };
+                const putRequest = store.put(updatedItem);
+                putRequest.onsuccess = () => resolve(updatedItem);
+                putRequest.onerror = (e) => reject(e.target.error);
+            };
+            getRequest.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    async deleteItem(storeName, id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.delete(id);
+            request.onsuccess = () => resolve(true);
+            request.onerror = (e) => reject(e.target.error);
+        });
+    },
+
+    // ====================================================================
+    // 3. PUBLIC API (FUNGSI-FUNGSI YANG DIPAKAI APLIKASI)
+    // ====================================================================
+    generateId: () => Date.now().toString(36) + Math.random().toString(36).substr(2),
+
+    // Wallets
+    async getWallets() { return this.getAll('wallets'); },
+    async saveWallets(wallets) { return this.saveAll('wallets', wallets); },
+
+    // Categories
+    async getCategories() { return this.getAll('categories'); },
+    async saveCategories(categories) { return this.saveAll('categories', categories); },
+    async getCategoryById(id) { return this.getById('categories', id); },
+
+    // Transactions
+    async getTransactions() { return this.getAll('transactions'); },
+    async saveTransactions(transactions) { return this.saveAll('transactions', transactions); },
+
+    // Budgets
+    async getBudgets() { return this.getAll('budgets'); },
+    async saveBudgets(budgets) { return this.saveAll('budgets', budgets); },
+
+    // Gold
+    async getGoldWallets() { return this.getAll('goldWallets'); },
+    async saveGoldWallets(wallets) { return this.saveAll('goldWallets', wallets); },
+    async getGoldTransactions() { return this.getAll('goldTransactions'); },
+    async saveGoldTransactions(transactions) { return this.saveAll('goldTransactions', transactions); },
+    async getGoldPrice() { 
+        const price = await this.getById('currentGoldPrice', 'current');
+        return price || { buy: 1200000, sell: 1150000, source: 'Default' };
+    },
+    async saveGoldPrice(price) {
+        const priceObject = {
+            ...price,
+            id: 'current', // Key statis agar selalu menimpa data yang sama
+            lastUpdate: new Date().toISOString()
+        };
+        const transaction = this.db.transaction('currentGoldPrice', 'readwrite');
+        transaction.objectStore('currentGoldPrice').put(priceObject);
+        return true;
+    },
+
+    // Liabilities
+    async getLiabilities() { return this.getAll('liabilities'); },
+    async saveLiabilities(liabilities) { return this.saveAll('liabilities', liabilities); },
+    async getLiabilityPayments() { return this.getAll('liabilityPayments'); },
+    async saveLiabilityPayments(payments) { return this.saveAll('liabilityPayments', payments); },
+
+    // Savings & Bills
+    async getSavingsGoals() { return this.getAll('savingsGoals'); },
+    async saveSavingsGoals(goals) { return this.saveAll('savingsGoals', goals); },
+    async getSavingsTransactions() { return this.getAll('savingsTransactions'); },
+    async saveSavingsTransactions(transactions) { return this.saveAll('savingsTransactions', transactions); },
+    async getBillReminders() { return this.getAll('billReminders'); },
+    async saveBillReminders(reminders) { return this.saveAll('billReminders', reminders); },
+
+    // ====================================================================
+    // 4. SCHEDULES MANAGEMENT (Fitur Baru)
+    // ====================================================================
+    async getSchedules() {
+        try {
+            return await this.getAll('schedules');
+        } catch (error) {
+            console.error('Error getting schedules:', error);
+            return [];
+        }
+    },
+
+    async addSchedule(schedule) {
+        try {
+            const scheduleWithId = {
+                ...schedule,
+                id: this.generateId(),
+                createdAt: new Date().toISOString()
+            };
+            return await this.addItem('schedules', scheduleWithId);
+        } catch (error) {
+            console.error('Error adding schedule:', error);
+            throw error;
+        }
+    },
+
+    async getSchedule(id) {
+        try {
+            return await this.getById('schedules', id);
+        } catch (error) {
+            console.error('Error getting schedule:', error);
+            return null;
+        }
+    },
+
+    async updateSchedule(id, updates) {
+        try {
+            return await this.updateItem('schedules', id, updates);
+        } catch (error) {
+            console.error('Error updating schedule:', error);
+            throw error;
+        }
+    },
+
+    async deleteSchedule(id) {
+        try {
+            return await this.deleteItem('schedules', id);
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+            throw error;
+        }
+    },
+
+    async getSchedulesByDate(date) {
+        try {
+            const allSchedules = await this.getSchedules();
+            return allSchedules.filter(schedule => schedule.date === date);
+        } catch (error) {
+            console.error('Error getting schedules by date:', error);
+            return [];
+        }
+    },
+
+    async getSchedulesByDateRange(startDate, endDate) {
+        try {
+            const allSchedules = await this.getSchedules();
+            return allSchedules.filter(schedule => {
+                return schedule.date >= startDate && schedule.date <= endDate;
+            });
+        } catch (error) {
+            console.error('Error getting schedules by date range:', error);
+            return [];
+        }
+    },
+
+    // ====================================================================
+    // 5. FUNGSI UTILITAS (Backup, Restore, etc.)
+    // ====================================================================
+    async backupData() {
+        try {
+            // Mengambil semua data secara paralel untuk efisiensi
+            const [
+                wallets, categories, transactions, budgets, goldWallets, 
+                goldTransactions, currentGoldPrice, liabilities, liabilityPayments, 
+                savingsGoals, savingsTransactions, billReminders, schedules
+            ] = await Promise.all([
+                this.getWallets(), this.getCategories(), this.getTransactions(),
+                this.getBudgets(), this.getGoldWallets(), this.getGoldTransactions(),
+                this.getGoldPrice(), this.getLiabilities(), this.getLiabilityPayments(),
+                this.getSavingsGoals(), this.getSavingsTransactions(), this.getBillReminders(),
+                this.getSchedules()
+            ]);
+
+            const data = {
+                wallets, categories, transactions, budgets, goldWallets, goldTransactions,
+                currentGoldPrice, liabilities, liabilityPayments, savingsGoals,
+                savingsTransactions, billReminders, schedules,
+                exportedAt: new Date().toISOString(),
+                version: '3.1' // Versi dengan schedules
             };
 
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `finance_complete_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            console.log('💾 Complete backup created:', data.dataCount);
-            window.app.utils.showToast('Backup berhasil diunduh!', 'success');
+            console.log('💾 Backup complete.');
             return true;
         } catch (e) {
             console.error('Backup error:', e);
-            window.app.utils.showToast('Gagal membuat backup ', 'error');
             return false;
         }
     },
 
-    restoreData(jsonData) {
+    async restoreData(jsonData) {
         try {
             const data = JSON.parse(jsonData);
-            
-            if (!data.wallets || !data.categories || !data.transactions) {
-                throw new Error('Format backup tidak valid');
+            if (!data.wallets || !data.categories) {
+                throw new Error('Invalid backup file format.');
             }
 
-            console.log('🔄 Restoring data:', data.dataCount || 'Unknown version');
+            console.log('🔄 Restoring data...');
 
-            this.saveWallets(data.wallets);
-            this.saveCategories(data.categories);
-            this.saveTransactions(data.transactions);
-            this.saveBudgets(data.budgets || []);
-
-            if (data.goldWallets) this.saveGoldWallets(data.goldWallets);
-            if (data.goldTransactions) this.saveGoldTransactions(data.goldTransactions);
-            if (data.currentGoldPrice) this.saveGoldPrice(data.currentGoldPrice);
-
-            if (data.liabilities) this.saveLiabilities(data.liabilities);
-            if (data.liabilityPayments) this.saveLiabilityPayments(data.liabilityPayments);
-
-            if (data.savingsGoals) this.saveSavingsGoals(data.savingsGoals);
-            if (data.savingsTransactions) this.saveSavingsTransactions(data.savingsTransactions);
-            if (data.billReminders) this.saveBillReminders(data.billReminders);
-
-            if (data.theme) window.app.utils.setTheme(data.theme);
-
-            console.log('🎉 Complete restore successful!');
+            // Menyimpan semua data secara paralel
+            await Promise.all([
+                this.saveAll('wallets', data.wallets || []),
+                this.saveAll('categories', data.categories || []),
+                this.saveAll('transactions', data.transactions || []),
+                this.saveAll('budgets', data.budgets || []),
+                this.saveAll('goldWallets', data.goldWallets || []),
+                this.saveAll('goldTransactions', data.goldTransactions || []),
+                this.saveAll('liabilities', data.liabilities || []),
+                this.saveAll('liabilityPayments', data.liabilityPayments || []),
+                this.saveAll('savingsGoals', data.savingsGoals || []),
+                this.saveAll('savingsTransactions', data.savingsTransactions || []),
+                this.saveAll('billReminders', data.billReminders || []),
+                this.saveAll('schedules', data.schedules || []), // Tambahkan schedules
+                this.saveGoldPrice(data.currentGoldPrice || { buy: 1000000, sell: 980000, source: 'Restored' })
+            ]);
+            
+            console.log('🎉 Restore successful!');
             return true;
         } catch (e) {
             console.error('Restore error:', e);
-            window.app.utils.showToast('Gagal memulihkan data! File mungkin rusak.', 'error');
             return false;
         }
     },
 
-    autoBackup() {
-        const lastBackup = localStorage.getItem('lastBackup');
-        const today = new Date().toDateString();
-        
-        if (lastBackup !== today) {
-            this.backupData();
-            localStorage.setItem('lastBackup', today);
+    async exportData() {
+        try {
+            const [
+                wallets, categories, transactions, budgets, goldWallets, 
+                goldTransactions, currentGoldPrice, liabilities, liabilityPayments, 
+                savingsGoals, savingsTransactions, billReminders, schedules
+            ] = await Promise.all([
+                this.getWallets(), this.getCategories(), this.getTransactions(),
+                this.getBudgets(), this.getGoldWallets(), this.getGoldTransactions(),
+                this.getGoldPrice(), this.getLiabilities(), this.getLiabilityPayments(),
+                this.getSavingsGoals(), this.getSavingsTransactions(), this.getBillReminders(),
+                this.getSchedules()
+            ]);
+
+            return {
+                wallets, categories, transactions, budgets, goldWallets, goldTransactions,
+                currentGoldPrice, liabilities, liabilityPayments, savingsGoals,
+                savingsTransactions, billReminders, schedules,
+                exportDate: new Date().toISOString(),
+                version: '3.1' // Versi dengan schedules
+            };
+        } catch (error) {
+            console.error('Export data error:', error);
+            throw error;
+        }
+    },
+
+    // ====================================================================
+    // 6. FUNGSI PEMBERSIHAN DATA
+    // ====================================================================
+    async clearAllData() {
+        try {
+            const stores = [
+                'wallets', 'categories', 'transactions', 'budgets', 
+                'goldWallets', 'goldTransactions', 'savingsGoals', 
+                'savingsTransactions', 'billReminders', 'liabilities', 
+                'liabilityPayments', 'schedules'
+            ];
+
+            await Promise.all(stores.map(storeName => 
+                this.saveAll(storeName, [])
+            ));
+
+            // Reset gold price to default
+            await this.saveGoldPrice({ buy: 1000000, sell: 980000, source: 'Reset' });
+            
+            console.log('🧹 All data cleared successfully.');
+            return true;
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            return false;
         }
     }
 };
-
-console.log('✅ DB loaded as module');
