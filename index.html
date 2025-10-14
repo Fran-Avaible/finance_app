@@ -6,7 +6,8 @@
     <title>Finance Manager Super App</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="icon" href="favicon.jpg" type="image/png">
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <link rel="icon" href="/finance_app-main/favicon.jpg" type="image/png">
 </head>
 <body>
     <div class="app-container">
@@ -26,7 +27,7 @@
             <button class="tab-btn" data-tab="gold">🪙 Emas</button>
             <button class="tab-btn" data-tab="saham">💹 Saham</button>
             <button class="tab-btn" data-tab="liabilities">🏦 Liabilitas</button>
-            <button class="tab-btn" data-tab="personalisasi">🫂 Personalisasi</button>
+            <button class="tab-btn" data-tab="personalization"><span>🎨</span> Personalisasi</button>
             <button class="tab-btn" data-tab="networth">🏡 Net Worth</button>
             <button class="tab-btn" data-tab="kurs">💵 Kurs</button>
         </nav>
@@ -41,7 +42,7 @@
             <div id="gold-tab" class="tab-pane"></div>
             <div id="saham-tab" class="tab-pane"></div>
             <div id="liabilities-tab" class="tab-pane"></div>
-            <div id="personalisasi-tab" class="tab-pane"></div>
+            <div id="personalization-tab" class="tab-pane"></div>
             <div id="networth-tab" class="tab-pane"></div>
             <div id="kurs-tab" class="tab-pane"></div>
         </div>
@@ -50,9 +51,6 @@
 <div id="modal-container"></div>
 
 <div id="floating-actions-container">
-    <button class="theme-toggle" title="Toggle Dark/Light Mode">
-        <span class="icon">🌓</span>
-    </button>
     <button class="note-toggle" id="quickNoteToggleBtn" title="Buka Catatan Cepat">
         <span class="icon">📝</span>
     </button>
@@ -68,7 +66,3 @@
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
-
-
-
-
