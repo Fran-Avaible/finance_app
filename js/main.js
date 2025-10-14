@@ -1,4 +1,5 @@
-// MultipleFiles/js/main.js
+// js/main.js (Versi Final dan Lengkap dengan async/await untuk IndexedDB)
+
 import { DB } from './database.js';
 import { Utils } from './utils.js';
 
@@ -11,21 +12,19 @@ import { CalendarModule } from './modules/calendar.js';
 import { SettingsModule } from './modules/settings.js';
 import { GoldModule } from './modules/gold.js';
 import { LiabilitiesModule } from './modules/liabilities.js';
-// import { ExchangeModule } from './modules/exchange.js'; // Asumsi ini ditambahkan nanti
+import { PersonalizationModule } from './modules/personalization.js';
 
 // ===== MAIN APP =====
 class FinanceApp {
     constructor() {
         this.currentTab = 'dashboard';
-        this.calendarDate = new Date(); 
+        this.calendarDate = new Date();
         this.budgetSubTab = 'budget';
         this.liabilitiesSubTab = 'liabilities';
 
-        // Sediakan Utils dan DB di scope App dan Global (untuk kompatibilitas onclick)
         this.utils = Utils;
         window.DB = DB;
         
-        // Properti untuk Quick Notes
         this.QUICK_NOTE_KEY = 'quickNoteContent';
         
         // Inisialisasi modul-modul
@@ -37,19 +36,24 @@ class FinanceApp {
         this.settingsModule = new SettingsModule(this);
         this.goldModule = new GoldModule(this);
         this.liabilitiesModule = new LiabilitiesModule(this);
-        // this.exchangeModule = new ExchangeModule(this); // Inisialisasi modul Kurs jika sudah dibuat
+        this.personalizationModule = new PersonalizationModule(this);
 
         this.init();
     }
 
-    init() {
-        DB.init();
-        this.setupEventListeners();
-        Utils.initTheme();
-        this.loadQuickNote();
-        this.renderNewsTicker(); // NEW CALL: Render News
-        this.render();
-        this.updateTotalBalance();
+    async init() {
+        try {
+            await DB.init();
+            this.setupEventListeners();
+            this.personalizationModule.applyToApp();
+            this.loadQuickNote();
+            this.renderNewsTicker();
+            await this.render();
+            await this.updateTotalBalance();
+        } catch (error) {
+            console.error("Failed to initialize the app:", error);
+            document.body.innerHTML = '<div style="text-align: center; padding: 50px;"><h1>Error</h1><p>Gagal memuat database aplikasi. Silakan coba segarkan halaman.</p></div>';
+        }
     }
 
     setupEventListeners() {
@@ -59,19 +63,14 @@ class FinanceApp {
             }
         });
         
-        // PASANG EVENT LISTENERS UNTUK QUICK NOTE
         const toggleBtn = document.getElementById('quickNoteToggleBtn');
         const saveBtn = document.getElementById('saveQuickNoteBtn');
 
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => this.toggleQuickNotePopup());
-        }
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveQuickNote());
-        }
+        if (toggleBtn) toggleBtn.addEventListener('click', () => this.toggleQuickNotePopup());
+        if (saveBtn) saveBtn.addEventListener('click', () => this.saveQuickNote());
     }
     
-    renderNewsTicker() { // UPDATED METHOD
+    renderNewsTicker() {
         const container = document.getElementById('newsTickerContainer');
         if (!container) return;
         
@@ -82,14 +81,10 @@ class FinanceApp {
             '✨ Terima kasih telah menggunakan Super App ini!'
         ];
 
-        container.innerHTML = `
-            <div class="news-ticker-content">
-                ${newsContent.join(' | ')} | 
-            </div>
-        `;
+        container.innerHTML = `<div class="news-ticker-content">${newsContent.join(' | ')} |</div>`;
     }
 
-    switchTab(tabName) {
+    async switchTab(tabName) {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tabName);
         });
@@ -99,72 +94,40 @@ class FinanceApp {
         });
 
         this.currentTab = tabName;
-        this.renderTabContent(tabName);
+        await this.renderTabContent(tabName);
     }
 
-    updateTotalBalance() {
-        const wallets = DB.getWallets();
+    async updateTotalBalance() {
+        const wallets = await DB.getWallets();
         const total = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
         document.getElementById('totalBalance').textContent = Utils.formatCurrency(total);
     }
 
-    renderTabContent(tabName) {
+    async renderTabContent(tabName) {
         const tabContent = document.getElementById(`${tabName}-tab`);
-        
+        if (!tabContent) return;
         tabContent.innerHTML = '';
 
         switch(tabName) {
-            case 'dashboard':
-                this.dashboardModule.render(tabContent);
-                break;
-            case 'transactions':
-                this.transactionsModule.render(tabContent);
-                break;
-            case 'budget':
-                this.budgetModule.render(tabContent);
-                break;
-            case 'reports':
-                this.reportsModule.render(tabContent);
-                break;
-            case 'calendar':
-                this.calendarModule.render(tabContent);
-                break;
-            case 'settings':
-                this.settingsModule.render(tabContent);
-                break;
-            case 'gold':
-                this.goldModule.render(tabContent);
-                break;
-            case 'liabilities':
-                this.liabilitiesModule.render(tabContent);
-                break;
-                
-            // Placeholder cases (Pastikan penamaan di index.html konsisten, huruf kecil tanpa spasi)
-            case 'Personalisasi': 
-                tabContent.innerHTML = '<div class="card"><p>Tab Personalisasi sedang dalam pengembangan</p></div>';
-                break;
-            case 'Net Worth':
-                tabContent.innerHTML = '<div class="card"><p>Tab Net Worth sedang dalam pengembangan</p></div>';
-                break;
-            case 'Kurs':
-                tabContent.innerHTML = '<div class="card"><p>Tab Kurs sedang dalam pengembangan</p></div>';
-                break;
-            case 'saham':
-                tabContent.innerHTML = '<div class="card"><p>Tab Saham sedang dalam pengembangan</p></div>';
-                break;
-                
+            case 'dashboard': await this.dashboardModule.render(tabContent); break;
+            case 'transactions': await this.transactionsModule.render(tabContent); break;
+            case 'budget': await this.budgetModule.render(tabContent); break;
+            case 'reports': await this.reportsModule.render(tabContent); break;
+            case 'calendar': await this.calendarModule.render(tabContent); break;
+            case 'settings': await this.settingsModule.render(tabContent); break;
+            case 'gold': await this.goldModule.render(tabContent); break;
+            case 'liabilities': await this.liabilitiesModule.render(tabContent); break;
+            case 'personalization': await this.personalizationModule.render(tabContent); break;
             default:
                 tabContent.innerHTML = '<div class="card"><p>Tab sedang dalam pengembangan</p></div>';
         }
     }
 
-    render() {
-        this.renderTabContent(this.currentTab);
-    }
+    
 
-    // ====================================================================
-    // Metode Global (Lanjutan) - Quick Note Logic
-    // ====================================================================
+    async render() {
+        await this.renderTabContent(this.currentTab);
+    }
 
     loadQuickNote() {
         const content = localStorage.getItem(this.QUICK_NOTE_KEY) || '';
@@ -192,23 +155,13 @@ class FinanceApp {
         }
     }
 
+
+
     // ====================================================================
-    // Metode Global (Lanjutan) - Wallet/Transaction/Data Management
-    // Semua metode di bawah ini diakses melalui window.app.method() dari HTML inline
+    // Metode Global yang menjadi async
     // ====================================================================
 
-    // Theme
-    changeTheme(theme) {
-        Utils.setTheme(theme);
-        Utils.showToast(`Mode ${theme === 'dark' ? 'gelap' : 'terang'} diaktifkan`, 'success');
-        if (this.currentTab === 'settings') {
-            this.settingsModule.render(document.getElementById('settings-tab'));
-        }
-    }
-
-    // Wallet
-    showAddWalletModal() {
-        // Logika Add Wallet Modal
+    async showAddWalletModal() {
         const content = `
             <form id="addWalletForm">
                 <div class="form-group">
@@ -226,39 +179,35 @@ class FinanceApp {
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Tambah Dompet</button>
             </form>
         `;
-
+        
         Utils.createModal('addWalletModal', 'Tambah Dompet', content);
         Utils.openModal('addWalletModal');
 
-        document.getElementById('addWalletForm').onsubmit = (e) => {
+        document.getElementById('addWalletForm').onsubmit = async (e) => {
             e.preventDefault();
             const name = document.getElementById('walletName').value;
             const balance = parseFloat(document.getElementById('walletBalance').value);
             const emoji = document.getElementById('walletEmoji').value;
 
-            const wallets = DB.getWallets();
-            wallets.push({
-                id: DB.generateId(),
-                name,
-                balance,
-                emoji
+            const wallets = await DB.getWallets();
+            wallets.push({ 
+                id: DB.generateId(), 
+                name, 
+                balance, 
+                emoji 
             });
             
-            if (DB.saveWallets(wallets)) {
-                Utils.closeModal('addWalletModal');
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Dompet berhasil ditambahkan!', 'success');
-            }
+            await DB.saveWallets(wallets);
+            Utils.closeModal('addWalletModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Dompet berhasil ditambahkan!', 'success');
         };
     }
 
-    showEditWalletModal(walletId) {
-        // Logika Edit Wallet Modal
-        const wallet = DB.getWallets().find(w => w.id === walletId);
+    async showEditWalletModal(walletId) {
+        const wallets = await DB.getWallets();
+        const wallet = wallets.find(w => w.id === walletId);
         if (!wallet) return;
 
         const content = `
@@ -283,61 +232,58 @@ class FinanceApp {
         Utils.createModal('editWalletModal', 'Edit Dompet', content);
         Utils.openModal('editWalletModal');
 
-        document.getElementById('editWalletForm').onsubmit = (e) => {
+        document.getElementById('editWalletForm').onsubmit = async (e) => {
             e.preventDefault();
             const name = document.getElementById('editWalletName').value;
-            const newBalance = parseFloat(document.getElementById('editWalletBalance').value);
+            const balance = parseFloat(document.getElementById('editWalletBalance').value);
             const emoji = document.getElementById('editWalletEmoji').value;
 
-            const updatedWallets = DB.getWallets().map(w => {
-                if (w.id === walletId) {
-                    return { ...w, name, balance: newBalance, emoji };
-                }
-                return w;
-            });
+            const wallets = await DB.getWallets();
+            const updatedWallets = wallets.map(w => 
+                w.id === walletId ? { ...w, name, balance, emoji } : w
+            );
             
-            if (DB.saveWallets(updatedWallets)) {
-                Utils.closeModal('editWalletModal');
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Dompet berhasil diperbarui!', 'success');
-            }
+            await DB.saveWallets(updatedWallets);
+            Utils.closeModal('editWalletModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Dompet berhasil diperbarui!', 'success');
         };
     }
 
-    confirmDeleteWallet(walletId) {
-        if (confirm('Apakah Anda yakin ingin menghapus dompet ini? Semua transaksi terkait juga akan dihapus.')) {
-            let wallets = DB.getWallets().filter(w => w.id !== walletId);
-            let transactions = DB.getTransactions().filter(t => t.walletId !== walletId);
+    async confirmDeleteWallet(walletId) {
+        if (confirm('Yakin hapus dompet ini? Semua transaksi terkait juga akan dihapus.')) {
+            const [wallets, transactions] = await Promise.all([
+                DB.getWallets(), 
+                DB.getTransactions()
+            ]);
             
-            if (DB.saveWallets(wallets) && DB.saveTransactions(transactions)) {
-                Utils.closeModal('editWalletModal');
-                this.dashboardModule.renderWalletsList();
-                this.dashboardModule.renderRecentTransactions();
-                this.transactionsModule.renderAllTransactions();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Dompet dan transaksi terkait berhasil dihapus.', 'success');
-            }
+            const updatedWallets = wallets.filter(w => w.id !== walletId);
+            const updatedTransactions = transactions.filter(t => t.walletId !== walletId);
+            
+            await Promise.all([
+                DB.saveWallets(updatedWallets),
+                DB.saveTransactions(updatedTransactions)
+            ]);
+            
+            Utils.closeModal('editWalletModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Dompet berhasil dihapus.', 'success');
         }
     }
 
-    // Transaction
-    showAddTransactionModal() {
-        const wallets = DB.getWallets();
-        const categories = DB.getCategories();
-
+    async showAddTransactionModal() {
+        const [wallets, categories] = await Promise.all([
+            DB.getWallets(), 
+            DB.getCategories()
+        ]);
+        
         if (wallets.length === 0) {
             Utils.showToast('Tambahkan dompet terlebih dahulu!', 'error');
-            this.showAddWalletModal();
-            return;
+            return this.showAddWalletModal();
         }
-
+        
         if (categories.length === 0) {
             Utils.showToast('Tambahkan kategori terlebih dahulu!', 'error');
             if (this.settingsModule && typeof this.settingsModule.showAddCategoryModal === 'function') {
@@ -350,7 +296,14 @@ class FinanceApp {
             `<option value="${w.id}">${w.emoji} ${w.name}</option>`
         ).join('');
 
-        const categoryOptions = categories.map(c => 
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        const expenseCategories = categories.filter(c => c.type === 'expense');
+        
+        const incomeOptions = incomeCategories.map(c => 
+            `<option value="${c.id}">${c.emoji} ${c.name}</option>`
+        ).join('');
+        
+        const expenseOptions = expenseCategories.map(c => 
             `<option value="${c.id}">${c.emoji} ${c.name}</option>`
         ).join('');
 
@@ -359,8 +312,8 @@ class FinanceApp {
                 <div class="form-group">
                     <label class="form-label">Tipe Transaksi</label>
                     <select class="form-control" id="transactionType" required>
-                        <option value="expense">Pengeluaran</option>
                         <option value="income">Pemasukan</option>
+                        <option value="expense">Pengeluaran</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -376,7 +329,13 @@ class FinanceApp {
                 <div class="form-group">
                     <label class="form-label">Kategori</label>
                     <select class="form-control" id="transactionCategory" required>
-                        ${categoryOptions}
+                        <option value="">Pilih kategori</option>
+                        <optgroup label="Pemasukan" id="incomeCategories" style="display: none;">
+                            ${incomeOptions}
+                        </optgroup>
+                        <optgroup label="Pengeluaran" id="expenseCategories">
+                            ${expenseOptions}
+                        </optgroup>
                     </select>
                 </div>
                 <div class="form-group">
@@ -389,73 +348,105 @@ class FinanceApp {
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Tambah Transaksi</button>
             </form>
+            
+            <script>
+                document.getElementById('transactionType').addEventListener('change', function() {
+                    const type = this.value;
+                    const incomeGroup = document.getElementById('incomeCategories');
+                    const expenseGroup = document.getElementById('expenseCategories');
+                    
+                    if (type === 'income') {
+                        incomeGroup.style.display = 'block';
+                        expenseGroup.style.display = 'none';
+                        if (incomeGroup.children.length > 0) {
+                            document.getElementById('transactionCategory').value = incomeGroup.children[0].value;
+                        }
+                    } else {
+                        incomeGroup.style.display = 'none';
+                        expenseGroup.style.display = 'block';
+                        if (expenseGroup.children.length > 0) {
+                            document.getElementById('transactionCategory').value = expenseGroup.children[0].value;
+                        }
+                    }
+                });
+                
+                document.getElementById('transactionType').dispatchEvent(new Event('change'));
+            </script>
         `;
-
+        
         Utils.createModal('addTransactionModal', 'Tambah Transaksi', content);
         Utils.openModal('addTransactionModal');
 
-        document.getElementById('addTransactionForm').onsubmit = (e) => {
-            e.preventDefault();
-            const type = document.getElementById('transactionType').value;
-            const amount = parseFloat(document.getElementById('transactionAmount').value);
-            const walletId = document.getElementById('transactionWallet').value;
-            const categoryId = document.getElementById('transactionCategory').value;
-            const date = document.getElementById('transactionDate').value;
-            const notes = document.getElementById('transactionNotes').value;
-
-            if (isNaN(amount) || amount <= 0) {
-                Utils.showToast('Jumlah harus lebih dari 0', 'error');
-                return;
+        setTimeout(() => {
+            const form = document.getElementById('addTransactionForm');
+            if (form) {
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    await this.processAddTransaction();
+                };
             }
-
-            const wallets = DB.getWallets();
-            const wallet = wallets.find(w => w.id === walletId);
-            if (wallet) {
-                if (type === 'income') {
-                    wallet.balance += amount;
-                } else {
-                    if (wallet.balance < amount) {
-                        Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
-                        return;
-                    }
-                    wallet.balance -= amount;
-                }
-                
-                if (!DB.saveWallets(wallets)) return;
-            }
-
-            const transactions = DB.getTransactions();
-            transactions.push({
-                id: DB.generateId(),
-                type,
-                amount,
-                walletId,
-                categoryId,
-                date,
-                notes,
-                createdAt: new Date().toISOString()
-            });
-            
-            if (DB.saveTransactions(transactions)) {
-                Utils.closeModal('addTransactionModal');
-                this.dashboardModule.renderRecentTransactions();
-                this.transactionsModule.renderAllTransactions();
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Transaksi berhasil ditambahkan!', 'success');
-            }
-        };
+        }, 100);
     }
 
-    showEditTransactionModal(transactionId) {
-        const transaction = DB.getTransactions().find(t => t.id === transactionId);
+    async processAddTransaction() {
+        const type = document.getElementById('transactionType').value;
+        const amount = parseFloat(document.getElementById('transactionAmount').value);
+        const walletId = document.getElementById('transactionWallet').value;
+        const categoryId = document.getElementById('transactionCategory').value;
+        const date = document.getElementById('transactionDate').value;
+        const notes = document.getElementById('transactionNotes').value;
+
+        if (!categoryId) {
+            return Utils.showToast('Pilih kategori terlebih dahulu!', 'error');
+        }
+
+        const [allWallets, transactions] = await Promise.all([
+            DB.getWallets(), 
+            DB.getTransactions()
+        ]);
+        
+        const wallet = allWallets.find(w => w.id === walletId);
+        
+        if (!wallet) {
+            return Utils.showToast('Dompet tidak ditemukan!', 'error');
+        }
+        
+        if (type === 'expense' && wallet.balance < amount) {
+            return Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
+        }
+        
+        // Update saldo dompet
+        wallet.balance += (type === 'income' ? amount : -amount);
+        await DB.saveWallets(allWallets);
+
+        // Tambahkan transaksi
+        transactions.push({ 
+            id: DB.generateId(), 
+            type, 
+            amount, 
+            walletId, 
+            categoryId, 
+            date, 
+            notes, 
+            createdAt: new Date().toISOString() 
+        });
+        await DB.saveTransactions(transactions);
+
+        Utils.closeModal('addTransactionModal');
+        await this.render();
+        await this.updateTotalBalance();
+        Utils.showToast('Transaksi berhasil ditambahkan!', 'success');
+    }
+
+    async showEditTransactionModal(transactionId) {
+        const transactions = await DB.getTransactions();
+        const transaction = transactions.find(t => t.id === transactionId);
         if (!transaction) return;
 
-        const wallets = DB.getWallets();
-        const categories = DB.getCategories();
+        const [wallets, categories] = await Promise.all([
+            DB.getWallets(), 
+            DB.getCategories()
+        ]);
 
         const walletOptions = wallets.map(w => 
             `<option value="${w.id}" ${w.id === transaction.walletId ? 'selected' : ''}>${w.emoji} ${w.name}</option>`
@@ -507,117 +498,86 @@ class FinanceApp {
         Utils.createModal('editTransactionModal', 'Edit Transaksi', content);
         Utils.openModal('editTransactionModal');
 
-        document.getElementById('editTransactionForm').onsubmit = (e) => {
+        document.getElementById('editTransactionForm').onsubmit = async (e) => {
             e.preventDefault();
-            const type = document.getElementById('editTransactionType').value;
-            const amount = parseFloat(document.getElementById('editTransactionAmount').value);
-            const walletId = document.getElementById('editTransactionWallet').value;
-            const categoryId = document.getElementById('editTransactionCategory').value;
-            const date = document.getElementById('editTransactionDate').value;
-            const notes = document.getElementById('editTransactionNotes').value;
+            const newType = document.getElementById('editTransactionType').value;
+            const newAmount = parseFloat(document.getElementById('editTransactionAmount').value);
+            const newWalletId = document.getElementById('editTransactionWallet').value;
+            const newCategoryId = document.getElementById('editTransactionCategory').value;
+            const newDate = document.getElementById('editTransactionDate').value;
+            const newNotes = document.getElementById('editTransactionNotes').value;
 
-            if (isNaN(amount) || amount <= 0) {
-                Utils.showToast('Jumlah harus lebih dari 0', 'error');
-                return;
+            // Proses rumit: Rollback saldo lama, terapkan saldo baru
+            const allWallets = await DB.getWallets();
+            const oldWallet = allWallets.find(w => w.id === transaction.walletId);
+            const newWallet = allWallets.find(w => w.id === newWalletId);
+
+            // 1. Kembalikan saldo dari transaksi lama
+            if (oldWallet) {
+                oldWallet.balance += (transaction.type === 'income' ? -transaction.amount : transaction.amount);
             }
 
-            // Mengembalikan saldo dompet lama (rollback)
-            const oldWallet = DB.getWallets().find(w => w.id === transaction.walletId);
-            if (oldWallet) {
-                if (transaction.type === 'income') {
-                    oldWallet.balance -= transaction.amount;
-                } else if (transaction.type === 'expense') {
-                    oldWallet.balance += transaction.amount;
-                }
-                // Simpan sementara (akan di-overwrite sebentar lagi)
-                DB.saveWallets(DB.getWallets().map(w => w.id === oldWallet.id ? oldWallet : w));
+            // 2. Cek saldo dan terapkan transaksi baru
+            if (newType === 'expense' && newWallet.balance < newAmount) {
+                 // Batalkan rollback jika saldo tidak cukup
+                if (oldWallet) oldWallet.balance -= (transaction.type === 'income' ? -transaction.amount : transaction.amount);
+                return Utils.showToast('Saldo dompet tujuan tidak mencukupi!', 'error');
             }
             
-            // Mengubah saldo dompet baru
-            const newWallet = DB.getWallets().find(w => w.id === walletId);
-            if (newWallet) {
-                if (type === 'income') {
-                    newWallet.balance += amount;
-                } else if (type === 'expense') {
-                    // Cek saldo untuk pengeluaran baru
-                    if (newWallet.balance < amount) {
-                        Utils.showToast('Saldo dompet tidak mencukupi!', 'error');
-                        return;
-                    }
-                    newWallet.balance -= amount;
-                }
-                
-                if (!DB.saveWallets(DB.getWallets().map(w => w.id === newWallet.id ? newWallet : w))) return;
-            }
+            newWallet.balance += (newType === 'income' ? newAmount : -newAmount);
+            await DB.saveWallets(allWallets);
 
-            // Memperbarui transaksi
-            const transactions = DB.getTransactions().map(t => 
+            // 3. Update data transaksi
+            const updatedTransactions = transactions.map(t => 
                 t.id === transactionId ? { 
                     ...t, 
-                    type, 
-                    amount, 
-                    walletId, 
-                    categoryId, 
-                    date, 
-                    notes 
+                    type: newType,
+                    amount: newAmount,
+                    walletId: newWalletId,
+                    categoryId: newCategoryId,
+                    date: newDate,
+                    notes: newNotes
                 } : t
             );
-            
-            if (DB.saveTransactions(transactions)) {
-                Utils.closeModal('editTransactionModal');
-                this.dashboardModule.renderRecentTransactions();
-                this.transactionsModule.renderAllTransactions();
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Transaksi berhasil diperbarui!', 'success');
-            }
+            await DB.saveTransactions(updatedTransactions);
+
+            Utils.closeModal('editTransactionModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Transaksi berhasil diperbarui!', 'success');
         };
     }
 
-    confirmDeleteTransaction(transactionId) {
-        if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-            const transaction = DB.getTransactions().find(t => t.id === transactionId);
+    async confirmDeleteTransaction(transactionId) {
+        if (confirm('Yakin hapus transaksi ini?')) {
+            const [transactions, wallets] = await Promise.all([
+                DB.getTransactions(), 
+                DB.getWallets()
+            ]);
+            
+            const transaction = transactions.find(t => t.id === transactionId);
             if (!transaction) return;
 
-            const wallet = DB.getWallets().find(w => w.id === transaction.walletId);
+            const wallet = wallets.find(w => w.id === transaction.walletId);
             if (wallet) {
-                if (transaction.type === 'income') {
-                    wallet.balance -= transaction.amount;
-                } else if (transaction.type === 'expense') {
-                    wallet.balance += transaction.amount;
-                }
-                
-                if (!DB.saveWallets(DB.getWallets().map(w => 
-                    w.id === wallet.id ? wallet : w
-                ))) return;
+                wallet.balance += (transaction.type === 'income' ? -transaction.amount : transaction.amount);
+                await DB.saveWallets(wallets);
             }
 
-            const transactions = DB.getTransactions().filter(t => t.id !== transactionId);
-            
-            if (DB.saveTransactions(transactions)) {
-                Utils.closeModal('editTransactionModal');
-                this.dashboardModule.renderRecentTransactions();
-                this.transactionsModule.renderAllTransactions();
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Transaksi berhasil dihapus!', 'success');
-            }
+            const updatedTransactions = transactions.filter(t => t.id !== transactionId);
+            await DB.saveTransactions(updatedTransactions);
+
+            Utils.closeModal('editTransactionModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Transaksi berhasil dihapus!', 'success');
         }
     }
 
-    // Transfer
-    showTransferModal() {
-        const wallets = DB.getWallets();
-        
+    async showTransferModal() {
+        const wallets = await DB.getWallets();
         if (wallets.length < 2) {
-            Utils.showToast('Anda perlu setidaknya 2 dompet untuk transfer!', 'error');
-            return;
+            return Utils.showToast('Anda perlu minimal 2 dompet untuk transfer!', 'error');
         }
 
         const walletOptions = wallets.map(w => 
@@ -672,7 +632,7 @@ class FinanceApp {
             }
         });
 
-        document.getElementById('transferForm').onsubmit = (e) => {
+        document.getElementById('transferForm').onsubmit = async (e) => {
             e.preventDefault();
             const fromWalletId = document.getElementById('transferFrom').value;
             const toWalletId = document.getElementById('transferTo').value;
@@ -685,8 +645,9 @@ class FinanceApp {
                 return;
             }
 
-            const fromWallet = DB.getWallets().find(w => w.id === fromWalletId);
-            const toWallet = DB.getWallets().find(w => w.id === toWalletId);
+            const allWallets = await DB.getWallets();
+            const fromWallet = allWallets.find(w => w.id === fromWalletId);
+            const toWallet = allWallets.find(w => w.id === toWalletId);
 
             if (!fromWallet || !toWallet) {
                 Utils.showToast('Dompet tidak ditemukan!', 'error');
@@ -694,20 +655,19 @@ class FinanceApp {
             }
 
             if (fromWallet.balance < amount) {
-                Utils.showToast('Saldo dompet asal tidak mencukupi!', 'error');
+                Utils.showToast('Saldo dompet asal tidak cukup!', 'error');
                 return;
             }
-
+            
             fromWallet.balance -= amount;
             toWallet.balance += amount;
-            
-            if (!DB.saveWallets(DB.getWallets().map(w => {
-                if (w.id === fromWalletId) return fromWallet;
-                if (w.id === toWalletId) return toWallet;
-                return w;
-            }))) return;
+            await DB.saveWallets(allWallets);
 
-            let transferCategory = DB.getCategories().find(c => c.name === 'Transfer' && c.type === 'transfer');
+            // Buat 2 entri transaksi transfer
+            let transferCategory = await DB.getCategories().then(cats => 
+                cats.find(c => c.name === 'Transfer' && c.type === 'transfer')
+            );
+            
             if (!transferCategory) {
                 transferCategory = {
                     id: DB.generateId(),
@@ -715,12 +675,12 @@ class FinanceApp {
                     type: 'transfer',
                     emoji: '🔄'
                 };
-                const categories = DB.getCategories();
+                const categories = await DB.getCategories();
                 categories.push(transferCategory);
-                if (!DB.saveCategories(categories)) return;
+                await DB.saveCategories(categories);
             }
 
-            const transactions = DB.getTransactions();
+            const transactions = await DB.getTransactions();
             transactions.push({
                 id: DB.generateId(),
                 type: 'transfer',
@@ -743,22 +703,16 @@ class FinanceApp {
                 createdAt: new Date().toISOString()
             });
             
-            if (DB.saveTransactions(transactions)) {
-                Utils.closeModal('transferModal');
-                this.dashboardModule.renderRecentTransactions();
-                this.transactionsModule.renderAllTransactions();
-                this.dashboardModule.renderWalletsList();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Transfer berhasil!', 'success');
-            }
+            await DB.saveTransactions(transactions);
+
+            Utils.closeModal('transferModal');
+            await this.render();
+            await this.updateTotalBalance();
+            Utils.showToast('Transfer berhasil!', 'success');
         };
     }
 
-    // Backup & Restore
-    showBackupModal() {
+    async showBackupModal() {
         const content = `
             <div style="margin-bottom: 20px;">
                 <h4>💾 Backup Data Lengkap</h4>
@@ -798,22 +752,19 @@ class FinanceApp {
         Utils.openModal('backupModal');
     }
 
-    downloadCompleteBackup() {
-        if (DB.backupData()) {
+    async downloadCompleteBackup() {
+        if (await DB.backupData()) {
             Utils.closeModal('backupModal');
         }
     }
 
-    exportData() {
-        this.downloadCompleteBackup();
-    }
-
-    exportToCSV() {
-        // Logika exportToCSV
+    async exportToCSV() {
         try {
-            const transactions = DB.getTransactions();
-            const wallets = DB.getWallets();
-            const categories = DB.getCategories();
+            const [transactions, wallets, categories] = await Promise.all([
+                DB.getTransactions(), 
+                DB.getWallets(), 
+                DB.getCategories()
+            ]);
 
             let csv = 'Date,Type,Amount,Wallet,Category,Notes\n';
 
@@ -846,17 +797,32 @@ class FinanceApp {
         }
     }
 
-    confirmClearAllData() {
+    async confirmClearAllData() {
         if (confirm('HAPUS SEMUA DATA? Tindakan ini tidak dapat dibatalkan!')) {
             if (confirm('Anda yakin? Semua data akan hilang permanen!')) {
+                // Hapus database IndexedDB
+                await new Promise((resolve, reject) => {
+                    const deleteRequest = indexedDB.deleteDatabase(DB.dbName);
+                    deleteRequest.onsuccess = () => { 
+                        console.log("Database deleted"); 
+                        resolve(); 
+                    };
+                    deleteRequest.onerror = () => { 
+                        console.error("Error deleting database"); 
+                        reject(); 
+                    };
+                    deleteRequest.onblocked = () => { 
+                        console.warn("Database delete blocked"); 
+                        reject(); 
+                    };
+                });
+                
+                // Hapus juga local storage untuk item non-db seperti catatan
                 localStorage.clear();
-                DB.init();
-                this.render();
-                this.updateTotalBalance();
-                if (this.settingsModule && typeof this.settingsModule.updateAppInfo === 'function') {
-                    this.settingsModule.updateAppInfo();
-                }
-                Utils.showToast('Data berhasil direset!', 'success');
+                
+                // Refresh halaman untuk re-inisialisasi dari awal
+                Utils.showToast('Data berhasil direset! Aplikasi akan dimuat ulang.', 'success');
+                setTimeout(() => window.location.reload(), 2000);
             }
         }
     }
@@ -866,5 +832,5 @@ class FinanceApp {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new FinanceApp();
-    window.app = app; // Membuat instance app tersedia secara global untuk HTML inline onclick
+    window.app = app;
 });
