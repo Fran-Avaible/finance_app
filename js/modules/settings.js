@@ -37,7 +37,7 @@ export class SettingsModule {
                 <div style="text-align: center; padding: 20px;">
                     <div style="font-size: 48px; margin-bottom: 10px;">🤖</div>
                     <h3>Finance Super App</h3>
-                    <p style="color: #666; margin-bottom: 15px;">Aplikasi manajemen keuangan offline</p>
+                    <p style="color: #666; margin-bottom: 15px;">Sampai Jumpa dan Terimakasih Kunjungi Aplikasi Innovation Beta untuk akses online keuanganmu sekarang https://my-finance-tracker-56f33.web.app</p>
                     <div style="background: var(--light-color); padding: 15px; border-radius: 10px;">
                         <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
                         <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
@@ -258,4 +258,5 @@ export class SettingsModule {
         }
     }
 }
+
 
