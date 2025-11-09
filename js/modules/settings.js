@@ -42,9 +42,6 @@ export class SettingsModule {
                         <p><strong>Total Transaksi:</strong> <span id="totalTransactionsCount">0</span></p>
                         <p><strong>Total Wallet:</strong> <span id="totalWalletsCount">0</span></p>
                         <p><strong>Versi:</strong> 3.0 (IndexedDB)</p>
-                    <div style="font-size: 48px; margin-bottom: 10px;">Sampai Jumpa dan Terimakasih</div>
-                    <p style="color: #666; margin-bottom: 15px;">Kunjungi Aplikasi Innovation Beta untuk akses online https://my-finance-tracker-56f33.web.app/</p>
-                    <div style="background: var(--light-color); padding: 15px; border-radius: 10px;">
                     </div>
                 </div>
             </div>
@@ -258,5 +255,6 @@ export class SettingsModule {
         }
     }
 }
+
 
 
