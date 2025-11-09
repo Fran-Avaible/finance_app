@@ -75,9 +75,9 @@ class FinanceApp {
         if (!container) return;
         
         const newsContent = [
-            '⚠️ PERINGATAN: Kami bersiap migrasi besar ke V3.9.0 untuk stabilitas dan fitur baru! Harap Backup Data Anda.',
-            '📞 Kontak WA: 082181238808 (Hanya Chat)',
-            '📧 Feedback & Saran: afrandsyahromi08@gmail.com',
+            '⚠️ PERINGATAN: Website ini tidak akan mendapatkan update lagi sampai pengumuman selanjutnya.',
+            '📞 Informasi Lebih lanjut 082181238808 (Hanya Chat)',
+            '📧 Kunjungi: https://my-finance-tracker-56f33.web.app',
             '✨ Terima kasih telah menggunakan Super App ini!'
         ];
 
